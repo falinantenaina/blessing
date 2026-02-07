@@ -222,6 +222,17 @@ CREATE TABLE
         FOREIGN KEY (enseignant_remplacant_id) REFERENCES utilisateurs (id) ON DELETE CASCADE
     ) ENGINE = InnoDB;
 
+
+-- table heure creneau @ vague_horaires
+
+CREATE TABLE IF NOT EXISTS vague_horaires (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    vague_id INT NOT NULL,
+    heure_debut TIME NOT NULL,
+    heure_fin TIME NOT NULL,
+    FOREIGN KEY (vague_id) REFERENCES vagues(id) ON DELETE CASCADE
+);
+
 -- =============================================================================
 -- Données initiales (avec IGNORE pour être réexécutable)
 -- =============================================================================

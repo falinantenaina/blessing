@@ -52,22 +52,11 @@ const testConnection = async () => {
   let connection;
   try {
     connection = await pool.getConnection();
-    console.log("┌─────────────────────────────────────────────┐");
-    console.log("│   Connexion à la base MySQL établie avec succès  │");
-    console.log(`│   Host     : ${process.env.DB_HOST}`);
-    console.log(`│   Database : ${process.env.DB_NAME}`);
-    console.log(`│   User     : ${process.env.DB_USER}`);
-    console.log("└─────────────────────────────────────────────┘");
 
     // Petit test de requête simple
     const [rows] = await connection.query("SELECT VERSION() as version");
-    console.log(`MySQL version : ${rows[0].version}`);
 
   } catch (error) {
-    console.error("┌─────────────────────────────────────────────┐");
-    console.error("│      ÉCHEC DE LA CONNEXION À LA BASE MySQL      │");
-    console.error("└─────────────────────────────────────────────┘");
-    console.error("Message :", error.message);
     
     if (error.code) {
       console.error("Code d'erreur MySQL :", error.code);
