@@ -24,7 +24,7 @@ export default function Layout() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Sidebar */}
-      <div className="hidden md:flex md:flex-shrink-0">
+      <div className="hidden md:flex md:shrink-0">
         <div className="flex flex-col w-64">
           <Sidebar onLogout={handleLogout} />
         </div>

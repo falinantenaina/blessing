@@ -37,7 +37,6 @@ export default function Vagues() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [vagueToDelete, setVagueToDelete] = useState(null);
 
-  // Pagination & Filters
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [filters, setFilters] = useState({
@@ -47,7 +46,6 @@ export default function Vagues() {
     search: "",
   });
 
-  // FormData principal
   const [formData, setFormData] = useState({
     nom: "",
     niveau_id: "",
@@ -60,7 +58,6 @@ export default function Vagues() {
     horaires: [],
   });
 
-  // State local pour le nouveau créneau
   const [newCrenau, setNewCrenau] = useState({
     heure_debut: "",
     heure_fin: "",
@@ -75,11 +72,7 @@ export default function Vagues() {
     try {
       const [vaguesRes, niveauxRes, sallesRes, enseignantsRes] =
         await Promise.all([
-          vagueService.getAll({
-            page: currentPage,
-            limit: 10,
-            ...filters,
-          }),
+          vagueService.getAll({ page: currentPage, limit: 10, ...filters }),
           niveauService.getAll(),
           referenceService.getSalles(),
           userService.getProfesseurs(),
@@ -90,7 +83,6 @@ export default function Vagues() {
       setSalles(sallesRes.data.salles || sallesRes.data || []);
       setEnseignants(enseignantsRes.data.users || enseignantsRes.data || []);
 
-      // Gestion de la pagination
       if (vaguesRes.data.total && vaguesRes.data.limit) {
         setTotalPages(Math.ceil(vaguesRes.data.total / vaguesRes.data.limit));
       }
@@ -134,19 +126,15 @@ export default function Vagues() {
     setShowModal(true);
   };
 
-  // Ajoute le créneau saisi au tableau des horaires
   const addCrenau = () => {
     if (!newCrenau.heure_debut || !newCrenau.heure_fin) {
       toast.error("Veuillez saisir l'heure de début et de fin");
       return;
     }
-
-    // Validation: heure de fin doit être après heure de début
     if (newCrenau.heure_debut >= newCrenau.heure_fin) {
       toast.error("L'heure de fin doit être après l'heure de début");
       return;
     }
-
     setFormData({
       ...formData,
       horaires: [...formData.horaires, { ...newCrenau }],
@@ -165,14 +153,10 @@ export default function Vagues() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validation des horaires
     if (formData.horaires.length === 0) {
       toast.error("Veuillez ajouter au moins un créneau horaire");
       return;
     }
-
-    // Validation des dates
     if (formData.date_debut && formData.date_fin) {
       if (new Date(formData.date_debut) >= new Date(formData.date_fin)) {
         toast.error("La date de fin doit être après la date de début");
@@ -197,8 +181,6 @@ export default function Vagues() {
       })),
     };
 
-    console.log("Payload final:", JSON.stringify(dataToSubmit, null, 2));
-
     try {
       setLoading(true);
       if (selectedVague) {
@@ -212,8 +194,9 @@ export default function Vagues() {
       loadData();
     } catch (error) {
       console.error("Erreur serveur:", error.response?.data);
-      const serverMessage = error.response?.data?.message;
-      toast.error(serverMessage || "Erreur lors de l'enregistrement");
+      toast.error(
+        error.response?.data?.message || "Erreur lors de l'enregistrement",
+      );
     } finally {
       setLoading(false);
     }
@@ -236,7 +219,6 @@ export default function Vagues() {
 
   const confirmDelete = async () => {
     if (!vagueToDelete) return;
-
     try {
       setLoading(true);
       await vagueService.delete(vagueToDelete.id);
@@ -245,7 +227,6 @@ export default function Vagues() {
       setVagueToDelete(null);
       loadData();
     } catch (error) {
-      console.error("Erreur suppression:", error);
       toast.error(
         error.response?.data?.message || "Impossible de supprimer cette vague",
       );
@@ -256,37 +237,37 @@ export default function Vagues() {
 
   const handleFilterChange = (key, value) => {
     setFilters({ ...filters, [key]: value });
-    setCurrentPage(1); // Reset to first page on filter change
+    setCurrentPage(1);
   };
 
   const clearFilters = () => {
-    setFilters({
-      statut: "",
-      niveau_id: "",
-      enseignant_id: "",
-      search: "",
-    });
+    setFilters({ statut: "", niveau_id: "", enseignant_id: "", search: "" });
     setCurrentPage(1);
   };
 
   if (loading && vagues.length === 0) return <Loading fullScreen />;
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Vagues</h1>
-        <Button onClick={() => handleOpenModal()} variant="primary">
+    <div className="min-h-screen bg-gray-50/70 px-5 py-6 lg:px-8">
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold text-[#0a3d5c] tracking-tight">
+          Vagues
+        </h1>
+        <Button
+          onClick={() => handleOpenModal()}
+          className="bg-[#0a3d5c] hover:bg-[#0a3d5c] text-white shadow-md shadow-[#1e90ff]/20"
+        >
           <Plus className="w-5 h-5 mr-2" /> Nouvelle vague
         </Button>
       </div>
 
-      {/* Filtres */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="bg-white rounded-xl shadow-md border border-gray-200/80 p-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
           <Input
             placeholder="Rechercher par nom..."
             value={filters.search}
             onChange={(e) => handleFilterChange("search", e.target.value)}
+            className="border-gray-300 focus:border-[#1e90ff] focus:ring-[#1e90ff]/30"
           />
           <Select
             value={filters.statut}
@@ -321,43 +302,65 @@ export default function Vagues() {
             ]}
           />
         </div>
+
         {(filters.search ||
           filters.statut ||
           filters.niveau_id ||
           filters.enseignant_id) && (
-          <div className="mt-4">
-            <Button variant="ghost" onClick={clearFilters} size="sm">
+          <div className="mt-5">
+            <Button
+              variant="ghost"
+              onClick={clearFilters}
+              size="sm"
+              className="text-[#0a3d5c] hover:text-[#0a3d5c] hover:bg-[#1e90ff]/10"
+            >
               Réinitialiser les filtres
             </Button>
           </div>
         )}
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-md border border-gray-200/80 overflow-hidden">
         <Table>
-          <TableHeader>
-            <TableHead>Nom</TableHead>
-            <TableHead>Niveau</TableHead>
-            <TableHead>Enseignant</TableHead>
-            <TableHead>Salle</TableHead>
-            <TableHead>Période</TableHead>
-            <TableHead>Horaires</TableHead>
-            <TableHead>Statut</TableHead>
-            <TableHead>Inscrits</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+          <TableHeader className="bg-gray-50/80">
+            <TableHead className="text-[#0a3d5c] font-semibold">Nom</TableHead>
+            <TableHead className="text-[#0a3d5c] font-semibold">
+              Niveau
+            </TableHead>
+            <TableHead className="text-[#0a3d5c] font-semibold">
+              Enseignant
+            </TableHead>
+            <TableHead className="text-[#0a3d5c] font-semibold">
+              Salle
+            </TableHead>
+            <TableHead className="text-[#0a3d5c] font-semibold">
+              Période
+            </TableHead>
+            <TableHead className="text-[#0a3d5c] font-semibold">
+              Horaires
+            </TableHead>
+            <TableHead className="text-[#0a3d5c] font-semibold">
+              Statut
+            </TableHead>
+            <TableHead className="text-[#0a3d5c] font-semibold">
+              Inscrits
+            </TableHead>
+            <TableHead className="text-right text-[#0a3d5c] font-semibold">
+              Actions
+            </TableHead>
           </TableHeader>
           <TableBody>
             {vagues.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-12">
-                  <div className="flex flex-col items-center gap-2">
-                    <AlertCircle className="w-12 h-12 text-gray-400" />
-                    <p className="text-gray-500">Aucune vague trouvée</p>
+                <TableCell colSpan={9} className="text-center py-16">
+                  <div className="flex flex-col items-center gap-4">
+                    <AlertCircle className="w-14 h-14 text-gray-400" />
+                    <p className="text-gray-600 text-lg font-medium">
+                      Aucune vague trouvée
+                    </p>
                     <Button
-                      variant="outline"
                       onClick={() => handleOpenModal()}
-                      size="sm"
+                      className="border-[#1e90ff] text-[#1e90ff] hover:bg-[#1e90ff]/10"
                     >
                       Créer une vague
                     </Button>
@@ -366,30 +369,37 @@ export default function Vagues() {
               </TableRow>
             ) : (
               vagues.map((vague) => (
-                <TableRow key={vague.id}>
-                  <TableCell className="font-medium">{vague.nom}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{vague.niveau_code}</Badge>
+                <TableRow
+                  key={vague.id}
+                  className="hover:bg-gray-50/60 transition-colors"
+                >
+                  <TableCell className="font-medium text-gray-900">
+                    {vague.nom}
                   </TableCell>
                   <TableCell>
+                    <Badge className="bg-[#00b894]/10 text-[#00b894] border-[#00b894]/30">
+                      {vague.niveau_code}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-gray-700">
                     {vague.enseignant_nom
                       ? `${vague.enseignant_prenom} ${vague.enseignant_nom}`
-                      : "-"}
+                      : "—"}
                   </TableCell>
-                  <TableCell>{vague.salle_nom || "-"}</TableCell>
-                  <TableCell>
-                    <div className="text-xs text-gray-600">
-                      {vague.date_debut
-                        ? new Date(vague.date_debut).toLocaleDateString()
-                        : "-"}
-                      {" → "}
-                      {vague.date_fin
-                        ? new Date(vague.date_fin).toLocaleDateString()
-                        : "-"}
-                    </div>
+                  <TableCell className="text-gray-700">
+                    {vague.salle_nom || "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-gray-600">
+                    {vague.date_debut
+                      ? new Date(vague.date_debut).toLocaleDateString("fr-FR")
+                      : "—"}
+                    {" → "}
+                    {vague.date_fin
+                      ? new Date(vague.date_fin).toLocaleDateString("fr-FR")
+                      : "—"}
                   </TableCell>
                   <TableCell>
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                    <span className="text-xs font-medium text-gray-700 bg-gray-100 px-2.5 py-1 rounded-full">
                       {vague.horaires?.length || 0} créneau(x)
                     </span>
                   </TableCell>
@@ -402,8 +412,8 @@ export default function Vagues() {
                     <span
                       className={
                         vague.nb_inscrits >= vague.capacite_max
-                          ? "text-red-600 font-semibold"
-                          : "text-gray-700"
+                          ? "text-red-700 font-semibold"
+                          : "text-gray-800 font-medium"
                       }
                     >
                       {vague.nb_inscrits || 0} / {vague.capacite_max}
@@ -413,14 +423,14 @@ export default function Vagues() {
                     <div className="flex justify-end gap-2">
                       <button
                         onClick={() => handleViewDetails(vague)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Voir les détails"
+                        className="p-2 text-[#1e90ff] hover:bg-[#1e90ff]/10 rounded-lg transition-colors"
+                        title="Voir détails"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleOpenModal(vague)}
-                        className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                        className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                         title="Modifier"
                       >
                         <Edit className="w-4 h-4" />
@@ -441,18 +451,18 @@ export default function Vagues() {
           </TableBody>
         </Table>
 
-        {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50/60">
             <div className="text-sm text-gray-600">
               Page {currentPage} sur {totalPages}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Button
                 variant="outline"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 size="sm"
+                className="border-gray-300 hover:border-[#1e90ff] hover:text-[#1e90ff]"
               >
                 Précédent
               </Button>
@@ -463,6 +473,7 @@ export default function Vagues() {
                 }
                 disabled={currentPage === totalPages}
                 size="sm"
+                className="border-gray-300 hover:border-[#1e90ff] hover:text-[#1e90ff]"
               >
                 Suivant
               </Button>
@@ -471,7 +482,6 @@ export default function Vagues() {
         )}
       </div>
 
-      {/* Modal Création / Modification */}
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
@@ -485,6 +495,7 @@ export default function Vagues() {
             value={formData.nom}
             onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
             required
+            className="border-gray-300 focus:border-[#1e90ff] focus:ring-[#1e90ff]/30"
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -534,48 +545,47 @@ export default function Vagues() {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6"> {/* Changé en grid-cols-3 pour l'alignement */}
-        <Select
-          label="Salle"
-          value={formData.salle_id}
-          onChange={(e) =>
-            setFormData({ ...formData, salle_id: e.target.value })
-          }
-          options={salles.map((s) => ({ value: s.id, label: s.nom }))}
-        />
-        <Input
-          label="Capacité Max"
-          type="number"
-          placeholder="Ex: 25"
-          value={formData.capacite_max}
-          onChange={(e) =>
-            setFormData({ ...formData, capacite_max: e.target.value })
-          }
-          required
-        />
-        <Select
-          label="Statut"
-          value={formData.statut}
-          onChange={(e) =>
-            setFormData({ ...formData, statut: e.target.value })
-          }
-          options={[
-            { value: "planifie", label: "Planifié" },
-            { value: "en_cours", label: "En cours" },
-            { value: "termine", label: "Terminé" },
-            { value: "annule", label: "Annulé" },
-          ]}
-        />
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Select
+              label="Salle"
+              value={formData.salle_id}
+              onChange={(e) =>
+                setFormData({ ...formData, salle_id: e.target.value })
+              }
+              options={salles.map((s) => ({ value: s.id, label: s.nom }))}
+            />
+            <Input
+              label="Capacité Max"
+              type="number"
+              placeholder="Ex: 25"
+              value={formData.capacite_max}
+              onChange={(e) =>
+                setFormData({ ...formData, capacite_max: e.target.value })
+              }
+              required
+            />
+            <Select
+              label="Statut"
+              value={formData.statut}
+              onChange={(e) =>
+                setFormData({ ...formData, statut: e.target.value })
+              }
+              options={[
+                { value: "planifie", label: "Planifié" },
+                { value: "en_cours", label: "En cours" },
+                { value: "termine", label: "Terminé" },
+                { value: "annule", label: "Annulé" },
+              ]}
+            />
+          </div>
 
-          {/* Section Horaires */}
-          <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">
-              Créneaux horaires de la vague
+          <div className="bg-gray-50/60 p-6 rounded-xl border border-gray-200/80">
+            <h3 className="text-base font-semibold text-[#0a3d5c] mb-5 tracking-wide">
+              Créneaux horaires
             </h3>
 
-            <div className="flex gap-4 items-end mb-6">
-              <div className="flex-1">
+            <div className="flex flex-col sm:flex-row gap-4 items-end mb-6">
+              <div className="flex-1 w-full sm:w-auto">
                 <Input
                   label="Heure début"
                   type="time"
@@ -585,7 +595,7 @@ export default function Vagues() {
                   }
                 />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 w-full sm:w-auto">
                 <Input
                   label="Heure fin"
                   type="time"
@@ -599,64 +609,69 @@ export default function Vagues() {
                 type="button"
                 variant="outline"
                 onClick={addCrenau}
-                className="h-10.5"
+                className="border-[#00b894] text-[#00b894] hover:bg-[#00b894]/10 whitespace-nowrap"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Ajouter
               </Button>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               {formData.horaires.map((h, idx) => (
                 <div
                   key={idx}
-                  className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200 shadow-sm"
+                  className="flex justify-between items-center bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:border-[#00b894]/40 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                    <span className="font-medium text-gray-700">
+                  <div className="flex items-center gap-4">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#00b894]"></div>
+                    <span className="font-medium text-gray-800">
                       {h.heure_debut} — {h.heure_fin}
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => removeCrenau(idx)}
-                    className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
+                    className="text-red-600 hover:bg-red-50 p-2 rounded-full transition-colors"
                   >
                     <Trash2 size={18} />
                   </button>
                 </div>
               ))}
+
               {formData.horaires.length === 0 && (
-                <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-lg">
-                  <Calendar className="w-8 h-8 mx-auto text-gray-300 mb-2" />
-                  <p className="text-gray-400 text-sm">
-                    Aucun horaire défini pour cette vague
+                <div className="text-center py-10 border-2 border-dashed border-gray-300 rounded-xl bg-white/40">
+                  <Calendar className="w-10 h-10 mx-auto text-gray-400 mb-3" />
+                  <p className="text-gray-600 font-medium">
+                    Aucun créneau horaire défini
                   </p>
-                  <p className="text-gray-400 text-xs mt-1">
-                    Ajoutez au moins un créneau horaire
+                  <p className="text-gray-500 text-sm mt-1">
+                    Ajoutez au moins un créneau pour valider la vague
                   </p>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               onClick={() => setShowModal(false)}
+              className="border-gray-300 text-gray-700 hover:bg-gray-100"
             >
               Annuler
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="bg-[#1e90ff] hover:bg-[#0c7ae6] text-white shadow-md shadow-[#1e90ff]/20"
+            >
               {loading ? "Enregistrement..." : "Enregistrer"}
             </Button>
           </div>
         </form>
       </Modal>
 
-      {/* Modal Détails */}
       <Modal
         isOpen={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
@@ -664,91 +679,99 @@ export default function Vagues() {
         size="lg"
       >
         {vagueDetails && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+          <div className="space-y-7">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">Nom</p>
-                <p className="text-lg font-semibold">{vagueDetails.nom}</p>
+                <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide">
+                  Nom
+                </p>
+                <p className="mt-1 text-lg font-semibold text-[#0a3d5c]">
+                  {vagueDetails.nom}
+                </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">
+                <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide">
                   Niveau
                 </p>
-                <p className="text-lg font-semibold text-blue-600">
+                <p className="mt-1 text-lg font-semibold text-[#00b894]">
                   {vagueDetails.niveau_code}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">
+                <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide">
                   Enseignant
                 </p>
-                <p className="text-lg font-semibold">
+                <p className="mt-1 text-lg font-semibold text-gray-900">
                   {vagueDetails.enseignant_nom
                     ? `${vagueDetails.enseignant_prenom} ${vagueDetails.enseignant_nom}`
-                    : "-"}
+                    : "—"}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">
+                <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide">
                   Salle
                 </p>
-                <p className="text-lg font-semibold">
-                  {vagueDetails.salle_nom || "-"}
+                <p className="mt-1 text-lg font-semibold text-gray-900">
+                  {vagueDetails.salle_nom || "—"}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">
+                <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide">
                   Statut
                 </p>
-                <Badge className={getStatusColor(vagueDetails.statut)}>
-                  {getStatusLabel(vagueDetails.statut)}
-                </Badge>
+                <div className="mt-1">
+                  <Badge className={getStatusColor(vagueDetails.statut)}>
+                    {getStatusLabel(vagueDetails.statut)}
+                  </Badge>
+                </div>
               </div>
               <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">
+                <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide">
                   Remplissage
                 </p>
-                <p className="font-semibold">
+                <p className="mt-1 font-semibold text-gray-900">
                   {vagueDetails.nb_inscrits || 0} / {vagueDetails.capacite_max}{" "}
                   élèves
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 uppercase font-bold">
+                <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide">
                   Période
                 </p>
-                <p className="text-sm">
+                <p className="mt-1 text-sm text-gray-700">
                   Du{" "}
                   {vagueDetails.date_debut
-                    ? new Date(vagueDetails.date_debut).toLocaleDateString()
-                    : "-"}
+                    ? new Date(vagueDetails.date_debut).toLocaleDateString(
+                        "fr-FR",
+                      )
+                    : "—"}
                   <br />
                   Au{" "}
                   {vagueDetails.date_fin
-                    ? new Date(vagueDetails.date_fin).toLocaleDateString()
-                    : "-"}
+                    ? new Date(vagueDetails.date_fin).toLocaleDateString(
+                        "fr-FR",
+                      )
+                    : "—"}
                 </p>
               </div>
             </div>
 
             <div className="border-t pt-6">
-              <h4 className="font-bold text-gray-800 mb-4">
-                Horaires de passage
-              </h4>
-              {vagueDetails.horaires && vagueDetails.horaires.length > 0 ? (
+              <h4 className="font-semibold text-[#0a3d5c] mb-4">Horaires</h4>
+              {vagueDetails.horaires?.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {vagueDetails.horaires.map((h, i) => (
                     <div
                       key={i}
-                      className="bg-blue-50 text-blue-700 p-3 rounded-xl font-bold border border-blue-100 flex justify-center items-center gap-2"
+                      className="bg-[#00b894]/10 text-[#006d5a] p-4 rounded-lg font-medium border border-[#00b894]/30 flex items-center justify-center gap-3 shadow-sm"
                     >
-                      <Calendar size={16} />
+                      <Calendar size={18} />
                       {h.heure_debut} → {h.heure_fin}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-400 text-center py-4">
+                <p className="text-gray-500 text-center py-6 italic">
                   Aucun horaire défini
                 </p>
               )}
@@ -757,7 +780,6 @@ export default function Vagues() {
         )}
       </Modal>
 
-      {/* Modal Confirmation Suppression */}
       <Modal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
