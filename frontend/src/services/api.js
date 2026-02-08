@@ -1,34 +1,37 @@
-import axios from '../config/axios';
+// services/api.js - Version améliorée adaptée au backend
+import axios from "../config/axios";
 
-// ===== AUTH SERVICE =====
+// ============================================
+// AUTHENTICATION SERVICES
+// ============================================
 export const authService = {
   login: async (email, password) => {
-    const response = await axios.post('/auth/login', { email, password });
+    const response = await axios.post("/auth/login", { email, password });
     return response.data;
   },
 
   register: async (userData) => {
-    const response = await axios.post('/auth/register', userData);
+    const response = await axios.post("/auth/register", userData);
     return response.data;
   },
 
   logout: async () => {
-    const response = await axios.post('/auth/logout');
+    const response = await axios.post("/auth/logout");
     return response.data;
   },
 
   getProfile: async () => {
-    const response = await axios.get('/auth/me');
+    const response = await axios.get("/auth/me");
     return response.data;
   },
 
   updateProfile: async (userData) => {
-    const response = await axios.put('/auth/profile', userData);
+    const response = await axios.put("/auth/profile", userData);
     return response.data;
   },
 
   changePassword: async (currentPassword, newPassword) => {
-    const response = await axios.put('/auth/change-password', {
+    const response = await axios.put("/auth/change-password", {
       currentPassword,
       newPassword,
     });
@@ -36,10 +39,204 @@ export const authService = {
   },
 };
 
-// ===== USERS SERVICE =====
+// ============================================
+// VAGUES SERVICES
+// ============================================
+export const vagueService = {
+  getAll: async (params = {}) => {
+    const response = await axios.get("/vagues", { params });
+    return response.data;
+  },
+
+  getById: async (id) => {
+    const response = await axios.get(`/vagues/${id}`);
+    return response.data;
+  },
+
+  create: async (vagueData) => {
+    const response = await axios.post("/vagues", vagueData);
+    return response.data;
+  },
+
+  update: async (id, vagueData) => {
+    const response = await axios.put(`/vagues/${id}`, vagueData);
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await axios.delete(`/vagues/${id}`);
+    return response.data;
+  },
+
+  getPlanning: async (filters = {}) => {
+    const response = await axios.get("/vagues/planning", { params: filters });
+    return response.data;
+  },
+
+  getPlanningEnseignant: async (enseignantId) => {
+    const response = await axios.get(
+      `/vagues/planning/enseignant/${enseignantId}`,
+    );
+    return response.data;
+  },
+
+  checkCapacite: async (id) => {
+    const response = await axios.get(`/vagues/${id}/capacite`);
+    return response.data;
+  },
+};
+
+// ============================================
+// NIVEAUX SERVICES (ENDPOINT CORRIGÉ)
+// ============================================
+export const niveauService = {
+  getAll: async (params = {}) => {
+    const response = await axios.get("/niveaux", { params });
+    return response.data;
+  },
+
+  getById: async (id) => {
+    const response = await axios.get(`/niveaux/${id}`);
+    return response.data;
+  },
+
+  create: async (data) => {
+    const response = await axios.post("/niveaux", data);
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await axios.put(`/niveaux/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await axios.delete(`/niveaux/${id}`);
+    return response.data;
+  },
+
+  getStats: async () => {
+    const response = await axios.get("/niveaux/stats");
+    return response.data;
+  },
+};
+
+// ============================================
+// SALLES SERVICES (ENDPOINT CORRIGÉ)
+// ============================================
+export const salleService = {
+  getAll: async (params = {}) => {
+    const response = await axios.get("/salles", { params });
+    return response.data;
+  },
+
+  getById: async (id) => {
+    const response = await axios.get(`/salles/${id}`);
+    return response.data;
+  },
+
+  create: async (data) => {
+    const response = await axios.post("/salles", data);
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await axios.put(`/salles/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await axios.delete(`/salles/${id}`);
+    return response.data;
+  },
+
+  getOccupation: async (id) => {
+    const response = await axios.get(`/salles/${id}/occupation`);
+    return response.data;
+  },
+
+  checkDisponibilite: async (id, params) => {
+    const response = await axios.get(`/salles/${id}/disponibilite`, { params });
+    return response.data;
+  },
+
+  getDisponibles: async (params) => {
+    const response = await axios.get("/salles/disponibles", { params });
+    return response.data;
+  },
+
+  getStats: async () => {
+    const response = await axios.get("/salles/stats");
+    return response.data;
+  },
+};
+
+// ============================================
+// JOURS SERVICES (ENDPOINT CORRIGÉ)
+// ============================================
+export const jourService = {
+  getAll: async (params = {}) => {
+    const response = await axios.get("/jours", { params });
+    return response.data;
+  },
+
+  getById: async (id) => {
+    const response = await axios.get(`/jours/${id}`);
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await axios.put(`/jours/${id}`, data);
+    return response.data;
+  },
+
+  getWithStats: async () => {
+    const response = await axios.get("/jours/stats");
+    return response.data;
+  },
+};
+
+// ============================================
+// HORAIRES SERVICES (ENDPOINT CORRIGÉ)
+// ============================================
+export const horaireService = {
+  getAll: async (params = {}) => {
+    const response = await axios.get("/horaires", { params });
+    return response.data;
+  },
+
+  getById: async (id) => {
+    const response = await axios.get(`/horaires/${id}`);
+    return response.data;
+  },
+
+  create: async (data) => {
+    const response = await axios.post("/horaires", data);
+    return response.data;
+  },
+
+  update: async (id, data) => {
+    const response = await axios.put(`/horaires/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id) => {
+    const response = await axios.delete(`/horaires/${id}`);
+    return response.data;
+  },
+
+  getDisponibles: async (params) => {
+    const response = await axios.get("/horaires/disponibles", { params });
+    return response.data;
+  },
+};
+
+// ============================================
+// USERS SERVICES
+// ============================================
 export const userService = {
   getAll: async (params = {}) => {
-    const response = await axios.get('/users', { params });
+    const response = await axios.get("/users", { params });
     return response.data;
   },
 
@@ -49,7 +246,7 @@ export const userService = {
   },
 
   create: async (userData) => {
-    const response = await axios.post('/users', userData);
+    const response = await axios.post("/users", userData);
     return response.data;
   },
 
@@ -64,238 +261,178 @@ export const userService = {
   },
 
   toggleActive: async (id) => {
-    const response = await axios.patch(`/users/${id}/toggle`);
+    const response = await axios.patch(`/users/${id}/toggle-active`);
     return response.data;
   },
 
   getStats: async () => {
-    const response = await axios.get('/users/stats');
+    const response = await axios.get("/users/stats");
     return response.data;
   },
 
   getProfesseurs: async () => {
-    const response = await axios.get('/users/profs');
+    const response = await axios.get("/users/professeurs");
     return response.data;
   },
 
-  getAvailableTeachers: async (jourId, horaireId, excludeVagueId) => {
-    const response = await axios.get('/users/available-teachers', {
-      params: { jourId, horaireId, excludeVagueId },
-    });
+  getAvailableTeachers: async (params) => {
+    const response = await axios.get("/users/available-teachers", { params });
     return response.data;
   },
 };
 
-// ===== VAGUES SERVICE =====
-export const vagueService = {
-  getAll: async (params = {}) => {
-    const response = await axios.get('/vagues', { params });
+// ============================================
+// INSCRIPTIONS SERVICES
+// ============================================
+export const inscriptionService = {
+  createComplete: async (data) => {
+    const response = await axios.post("/inscriptions/complete", data);
     return response.data;
   },
 
   getById: async (id) => {
-    const response = await axios.get(`/vagues/${id}`);
+    const response = await axios.get(`/inscriptions/${id}`);
     return response.data;
   },
 
-  create: async (vagueData) => {
-    const response = await axios.post('/vagues', vagueData);
+  getByEtudiant: async (etudiantId) => {
+    const response = await axios.get(`/inscriptions/etudiant/${etudiantId}`);
     return response.data;
   },
 
-  update: async (id, vagueData) => {
-    const response = await axios.put(`/vagues/${id}`, vagueData);
+  addPaiement: async (data) => {
+    const response = await axios.post("/inscriptions/paiements", data);
     return response.data;
   },
 
-  delete: async (id) => {
-    const response = await axios.delete(`/vagues/${id}`);
-    return response.data;
-  },
-
-  updateStatus: async (id, statut) => {
-    const response = await axios.patch(`/vagues/${id}/statut`, { statut });
-    return response.data;
-  },
-
-  getEtudiants: async (id) => {
-    const response = await axios.get(`/vagues/${id}/etudiants`);
-    return response.data;
-  },
-
-  getPlanning: async (params = {}) => {
-    const response = await axios.get('/vagues/planning', { params });
-    return response.data;
-  },
-};
-
-// ===== INSCRIPTIONS SERVICE =====
-export const inscriptionService = {
-  create: async (inscriptionData) => {
-    const response = await axios.post('/inscriptions', inscriptionData);
-    return response.data;
-  },
-
-  delete: async (vagueId, etudiantId) => {
-    const response = await axios.delete(`/inscriptions/${vagueId}/${etudiantId}`);
-    return response.data;
-  },
-
-  getByStudent: async (studentId) => {
-    const response = await axios.get(`/inscriptions/student/${studentId}`);
-    return response.data;
-  },
-
-  updateStatus: async (id, statut) => {
-    const response = await axios.patch(`/inscriptions/${id}/statut`, { statut });
+  updateLivreStatut: async (inscriptionId, numeroLivre, data) => {
+    const response = await axios.put(
+      `/inscriptions/${inscriptionId}/livres/${numeroLivre}`,
+      data,
+    );
     return response.data;
   },
 
   getStats: async (params = {}) => {
-    const response = await axios.get('/inscriptions/stats', { params });
+    const response = await axios.get("/inscriptions/stats", { params });
     return response.data;
   },
 };
 
-// ===== NIVEAUX SERVICE =====
-export const niveauService = {
-  getAll: async (params = {}) => {
-    const response = await axios.get('/niveaux', { params });
-    return response.data;
-  },
-
-  getById: async (id) => {
-    const response = await axios.get(`/niveaux/${id}`);
-    return response.data;
-  },
-
-  create: async (niveauData) => {
-    const response = await axios.post('/niveaux', niveauData);
-    return response.data;
-  },
-
-  update: async (id, niveauData) => {
-    const response = await axios.put(`/niveaux/${id}`, niveauData);
-    return response.data;
-  },
-
-  delete: async (id) => {
-    const response = await axios.delete(`/niveaux/${id}`);
-    return response.data;
-  },
-
-  getStats: async () => {
-    const response = await axios.get('/niveaux/stats');
-    return response.data;
-  },
-};
-
-// ===== FINANCES SERVICE =====
+// ============================================
+// FINANCE / ECOLAGES SERVICES
+// ============================================
 export const financeService = {
   getEcolages: async (params = {}) => {
-    const response = await axios.get('/finances/ecolages', { params });
+    const response = await axios.get("/finance/ecolages", { params });
     return response.data;
   },
 
   getEcolageById: async (id) => {
-    const response = await axios.get(`/finances/ecolages/${id}`);
+    const response = await axios.get(`/finance/ecolages/${id}`);
     return response.data;
   },
 
-  getEcolagesByStudent: async (studentId) => {
-    const response = await axios.get(`/finances/student/${studentId}`);
+  enregistrerPaiement: async (data) => {
+    const response = await axios.post("/finance/paiements", data);
     return response.data;
   },
 
-  enregistrerPaiement: async (paiementData) => {
-    const response = await axios.post('/finances/paiements', paiementData);
+  getEcolagesByEtudiant: async (etudiantId) => {
+    const response = await axios.get(
+      `/finance/ecolages/etudiant/${etudiantId}`,
+    );
     return response.data;
   },
 
-  annulerPaiement: async (id) => {
-    const response = await axios.delete(`/finances/paiements/${id}`);
+  annulerPaiement: async (paiementId) => {
+    const response = await axios.delete(`/finance/paiements/${paiementId}`);
     return response.data;
   },
 
   getStats: async (params = {}) => {
-    const response = await axios.get('/finances/stats', { params });
+    const response = await axios.get("/finance/stats", { params });
     return response.data;
   },
 
   getRapport: async (params = {}) => {
-    const response = await axios.get('/finances/rapport', { params });
+    const response = await axios.get("/finance/rapport", { params });
     return response.data;
   },
 };
 
-// ===== REFERENCE SERVICE =====
-export const referenceService = {
-  // Salles
-  getSalles: async () => {
-    const response = await axios.get('/reference/salles');
+// ============================================
+// ECOLES SERVICES (depuis reference_controller)
+// ============================================
+export const ecoleService = {
+  getAll: async () => {
+    const response = await axios.get("/reference/ecoles");
     return response.data;
   },
 
-  createSalle: async (salleData) => {
-    const response = await axios.post('/reference/salles', salleData);
+  getById: async (id) => {
+    const response = await axios.get(`/reference/ecoles/${id}`);
     return response.data;
   },
 
-  updateSalle: async (id, salleData) => {
-    const response = await axios.put(`/reference/salles/${id}`, salleData);
+  create: async (data) => {
+    const response = await axios.post("/reference/ecoles", data);
     return response.data;
   },
 
-  deleteSalle: async (id) => {
-    const response = await axios.delete(`/reference/salles/${id}`);
+  update: async (id, data) => {
+    const response = await axios.put(`/reference/ecoles/${id}`, data);
     return response.data;
   },
 
-  // Horaires
-  getHoraires: async () => {
-    const response = await axios.get('/reference/horaires');
-    return response.data;
-  },
-
-  createHoraire: async (horaireData) => {
-    const response = await axios.post('/reference/horaires', horaireData);
-    return response.data;
-  },
-
-  updateHoraire: async (id, horaireData) => {
-    const response = await axios.put(`/reference/horaires/${id}`, horaireData);
-    return response.data;
-  },
-
-  deleteHoraire: async (id) => {
-    const response = await axios.delete(`/reference/horaires/${id}`);
-    return response.data;
-  },
-
-  // Jours
-  getJours: async () => {
-    const response = await axios.get('/reference/jours');
-    return response.data;
-  },
-
-  // Écoles
-  getEcoles: async () => {
-    const response = await axios.get('/reference/ecoles');
-    return response.data;
-  },
-
-  createEcole: async (ecoleData) => {
-    const response = await axios.post('/reference/ecoles', ecoleData);
-    return response.data;
-  },
-
-  updateEcole: async (id, ecoleData) => {
-    const response = await axios.put(`/reference/ecoles/${id}`, ecoleData);
-    return response.data;
-  },
-
-  deleteEcole: async (id) => {
+  delete: async (id) => {
     const response = await axios.delete(`/reference/ecoles/${id}`);
     return response.data;
   },
+};
+
+// ============================================
+// SERVICE DE RÉFÉRENCE (MAINTENU POUR COMPATIBILITÉ)
+// ============================================
+export const referenceService = {
+  // Niveaux
+  getNiveaux: async () => niveauService.getAll(),
+  createNiveau: async (data) => niveauService.create(data),
+  updateNiveau: async (id, data) => niveauService.update(id, data),
+  deleteNiveau: async (id) => niveauService.delete(id),
+
+  // Salles
+  getSalles: async () => salleService.getAll(),
+  createSalle: async (data) => salleService.create(data),
+  updateSalle: async (id, data) => salleService.update(id, data),
+  deleteSalle: async (id) => salleService.delete(id),
+
+  // Jours
+  getJours: async () => jourService.getAll(),
+
+  // Horaires
+  getHoraires: async () => horaireService.getAll(),
+  createHoraire: async (data) => horaireService.create(data),
+  updateHoraire: async (id, data) => horaireService.update(id, data),
+  deleteHoraire: async (id) => horaireService.delete(id),
+
+  // Écoles
+  getEcoles: async () => ecoleService.getAll(),
+  createEcole: async (data) => ecoleService.create(data),
+  updateEcole: async (id, data) => ecoleService.update(id, data),
+  deleteEcole: async (id) => ecoleService.delete(id),
+};
+
+export default {
+  authService,
+  vagueService,
+  niveauService,
+  salleService,
+  jourService,
+  horaireService,
+  userService,
+  inscriptionService,
+  financeService,
+  ecoleService,
+  referenceService,
 };

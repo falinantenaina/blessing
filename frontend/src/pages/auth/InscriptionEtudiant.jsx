@@ -9,7 +9,7 @@ import {
   Phone,
   Loader2,
 } from "lucide-react";
-import { vagueService, authService } from "@/services/api"; // Assure-toi que authService est exporté
+import { vagueService, authService } from "@/services/api"; 
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -29,7 +29,7 @@ const InscriptionEtudiant = () => {
     horaire_id: "",
     email: "",
     password: "",
-    role: "etudiant", // On force le rôle
+    role: "etudiant",
   });
 
   // Chargement des vagues
