@@ -290,6 +290,11 @@ export const inscriptionService = {
     return response.data;
   },
 
+  create: async (data) => {
+    const response = await axios.post("/inscriptions/public", data);
+    return response.data;
+  },
+
   getById: async (id) => {
     const response = await axios.get(`/inscriptions/${id}`);
     return response.data;

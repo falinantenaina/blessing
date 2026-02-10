@@ -8,8 +8,12 @@ import {
   User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-
-import { authService, niveauService, vagueService } from "@/services/api";
+import {
+  authService,
+  niveauService,
+  vagueService,
+  inscriptionService,
+} from "@/services/api";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 
@@ -20,16 +24,13 @@ const InscriptionEtudiant = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Données backend
   const [vaguesList, setVaguesList] = useState([]);
   const [niveaux, setNiveaux] = useState([]);
 
-  // Choix inscription
-  const [modeCours, setModeCours] = useState("salle"); // salle | ligne
+  const [modeCours, setModeCours] = useState("salle");
   const [niveauSelected, setNiveauSelected] = useState("");
   const [vagueSelected, setVagueSelected] = useState(null);
 
-  // Formulaires
   const [loginData, setLoginData] = useState({
     email: "",
     password: "",
@@ -42,13 +43,8 @@ const InscriptionEtudiant = () => {
     vague_id: "",
     email: "",
     password: "",
-    role: "etudiant",
-    mode_cours: "salle",
   });
 
-  // ============================
-  // Charger niveaux
-  // ============================
   useEffect(() => {
     async function fetchNiveaux() {
       try {
@@ -61,9 +57,6 @@ const InscriptionEtudiant = () => {
     fetchNiveaux();
   }, []);
 
-  // ============================
-  // Charger vagues planifiées
-  // ============================
   useEffect(() => {
     async function fetchVagues() {
       try {
@@ -77,40 +70,26 @@ const InscriptionEtudiant = () => {
     fetchVagues();
   }, []);
 
-  // ============================
-  // Filtrer vagues par niveau
-  // ============================
   const vaguesFiltrees = vaguesList.filter(
     (v) =>
       v.statut === "planifie" &&
       (!niveauSelected || v.niveau_id == niveauSelected),
   );
 
-  // ============================
-  // Handlers
-  // ============================
   const handleLoginChange = (e) =>
     setLoginData({ ...loginData, [e.target.name]: e.target.value });
 
   const handleSignupChange = (e) => {
     const { name, value } = e.target;
 
-    // Choix mode cours
     if (name === "mode_cours") {
       setModeCours(value);
-
-      setSignupData({
-        ...signupData,
-        mode_cours: value,
-        vague_id: "",
-      });
-
+      setSignupData({ ...signupData, vague_id: "" });
       setNiveauSelected("");
       setVagueSelected(null);
       return;
     }
 
-    // Choix niveau
     if (name === "niveau_id") {
       setNiveauSelected(value);
       setSignupData({ ...signupData, vague_id: "" });
@@ -118,57 +97,67 @@ const InscriptionEtudiant = () => {
       return;
     }
 
-    // Choix vague
     if (name === "vague_id") {
       setSignupData({ ...signupData, vague_id: value });
-
       const found = vaguesFiltrees.find((v) => v.id == value);
       setVagueSelected(found || null);
       return;
     }
 
-    // Autres champs
     setSignupData({ ...signupData, [name]: value });
   };
 
-  // ============================
-  // Connexion
-  // ============================
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     try {
-      await authService.login(loginData);
+      await authService.login(loginData.email, loginData.password);
       toast.success("Connexion réussie !");
       navigate("/dashboard");
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Email ou mot de passe incorrect",
-      );
+      toast.error(error.response?.data?.message || "Erreur de connexion");
     } finally {
       setLoading(false);
     }
   };
 
-  // ============================
-  // Inscription
-  // ============================
   const handleSignup = async (e) => {
     e.preventDefault();
 
-    // Si salle → vague obligatoire
     if (modeCours === "salle" && !signupData.vague_id) {
-      return toast.error("Veuillez choisir une vague");
+      toast.error("Veuillez choisir une session");
+      return;
     }
 
     setLoading(true);
-
     try {
-      await authService.register(signupData);
-      toast.success("Compte créé avec succès !");
+      // Préparation du payload avec les clés attendues par le backend
+      const payload = {
+        etudiant_nom: signupData.nom,
+        etudiant_prenom: signupData.prenom,
+        etudiant_telephone: signupData.telephone,
+        etudiant_email: signupData.email,
+        vague_id: signupData.vague_id,
+        // Ajout des valeurs par défaut pour les champs requis par le contrôleur
+        methode_paiement: "mobile_money",
+        frais_inscription_paye: 0,
+        montant_ecolage_initial: 0,
+        livre1_paye: false,
+        livre2_paye: false,
+        remarques: "Inscription via site web",
+      };
+
+      console.log("Envoi à : /api/inscriptions/public", payload);
+
+      const response = await inscriptionService.create(payload);
       navigate("/register-success");
+
+      if (response) {
+        toast.success("Inscription réussie !");
+        setIsLogin(true);
+      }
     } catch (error) {
+      console.error("Détails erreur:", error.response?.data);
       toast.error(
         error.response?.data?.message || "Erreur lors de l'inscription",
       );
@@ -180,7 +169,6 @@ const InscriptionEtudiant = () => {
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-blue-50 overflow-hidden relative">
       <div className="relative h-screen max-h-screen flex overflow-hidden">
-        {/* Partie gauche - Info */}
         <div className="hidden lg:block lg:w-1/2 fixed inset-y-0 left-0 z-10 bg-linear-to-br from-[#0a3d5c]/10 to-blue-50">
           <div className="h-full flex flex-col justify-center items-center p-12">
             <div className="max-w-md text-center">
@@ -198,7 +186,7 @@ const InscriptionEtudiant = () => {
                 </div>
                 <div className="flex items-start gap-4 text-lg text-gray-800">
                   <div className="w-10 h-10 rounded-full bg-[#0a3d5c]/10 flex items-center justify-center shrink-0">
-                    <User size={20} className="text-[#0aa3d5c]" />
+                    <User size={20} className="text-[#0a3d5c]" />
                   </div>
                   <span>Accompagnement personnalisé</span>
                 </div>
@@ -207,7 +195,6 @@ const InscriptionEtudiant = () => {
           </div>
         </div>
 
-        {/* Partie droite - Formulaire */}
         <div className="w-full lg:ml-[50%] lg:w-1/2 h-screen overflow-y-auto">
           <div className="min-h-full flex items-center justify-center p-6 sm:p-8 lg:p-12">
             <div className="w-full max-w-md py-12">
@@ -217,7 +204,6 @@ const InscriptionEtudiant = () => {
                 </h2>
               </div>
 
-              {/* Switch */}
               <div className="flex mb-10 bg-gray-100 rounded-full p-1.5 shadow-inner">
                 <button
                   onClick={() => setIsLogin(true)}
@@ -241,14 +227,12 @@ const InscriptionEtudiant = () => {
                 </button>
               </div>
 
-              {/* Form */}
               <form
                 onSubmit={isLogin ? handleLogin : handleSignup}
                 className="space-y-5"
               >
                 {!isLogin && (
                   <>
-                    {/* Nom/prénom */}
                     <div className="grid grid-cols-2 gap-4">
                       <input
                         type="text"
@@ -270,7 +254,6 @@ const InscriptionEtudiant = () => {
                       />
                     </div>
 
-                    {/* Téléphone */}
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center">
                         <Phone size={18} className="text-gray-400" />
@@ -286,9 +269,6 @@ const InscriptionEtudiant = () => {
                       />
                     </div>
 
-                    {/* ========================= */}
-                    {/* Choix mode cours */}
-                    {/* ========================= */}
                     <div className="space-y-1">
                       <label className="text-sm font-medium text-gray-700 ml-1">
                         Mode de cours
@@ -304,12 +284,8 @@ const InscriptionEtudiant = () => {
                       </select>
                     </div>
 
-                    {/* ========================= */}
-                    {/* Si salle → Niveau + Vague */}
-                    {/* ========================= */}
                     {modeCours === "salle" && (
                       <>
-                        {/* Niveau */}
                         <select
                           name="niveau_id"
                           value={niveauSelected}
@@ -325,90 +301,49 @@ const InscriptionEtudiant = () => {
                           ))}
                         </select>
 
-                        {/* Vague */}
-                        {modeCours === "salle" && niveauSelected && (
+                        {niveauSelected && (
                           <div className="space-y-4 mt-4">
                             <h3 className="text-sm font-semibold text-gray-700">
                               Sessions disponibles :
                             </h3>
-
                             {vaguesFiltrees.length === 0 && (
                               <p className="text-sm text-gray-500">
-                                Aucune vague disponible pour ce niveau.
+                                Aucune vague disponible.
                               </p>
                             )}
-
-                            {vaguesFiltrees.map((v) => {
-                              const placesRestantes =
-                                v.capacite_max - (v.nb_inscrits || 0);
-
-                              return (
-                                <div
-                                  key={v.id}
-                                  className={`p-4 border rounded-xl shadow-sm cursor-pointer transition-all ${
-                                    signupData.vague_id == v.id
-                                      ? "border-[#0a3d5c] bg-[#0a3d5c]/5"
-                                      : "hover:border-gray-400"
-                                  }`}
-                                  onClick={() => {
-                                    setSignupData({
-                                      ...signupData,
-                                      vague_id: v.id,
-                                    });
-                                    setVagueSelected(v);
-                                  }}
-                                >
-                                  <div className="flex justify-between items-center">
-                                    <h4 className="font-bold text-[#0a3d5c]">
-                                      {v.nom} ({v.niveau_nom})
-                                    </h4>
-                                    <span className="text-xs px-3 py-1 rounded-full bg-gray-100">
-                                      {placesRestantes} places
-                                    </span>
-                                  </div>
-
-                                  <p className="text-sm text-gray-600 mt-1">
-                                    📍 Salle : {v.salle_nom}
-                                  </p>
-
-                                  <p className="text-sm text-gray-600">
-                                    🕒 Horaires : {v.horaires_resume}
-                                  </p>
-
-                                  <p className="text-sm text-gray-600">
-                                    📅 Début :{" "}
-                                    {new Date(
-                                      v.date_debut,
-                                    ).toLocaleDateString()}
-                                  </p>
-
-                                  <button
-                                    type="button"
-                                    className="mt-3 w-full py-2 rounded-lg bg-[#0a3d5c] text-white font-semibold hover:opacity-90"
-                                  >
-                                    Choisir cette vague
-                                  </button>
+                            {vaguesFiltrees.map((v) => (
+                              <div
+                                key={v.id}
+                                className={`p-4 border rounded-xl shadow-sm cursor-pointer transition-all ${
+                                  signupData.vague_id == v.id
+                                    ? "border-[#0a3d5c] bg-[#0a3d5c]/5"
+                                    : "hover:border-gray-400"
+                                }`}
+                                onClick={() => {
+                                  setSignupData({
+                                    ...signupData,
+                                    vague_id: v.id,
+                                  });
+                                  setVagueSelected(v);
+                                }}
+                              >
+                                <div className="flex justify-between items-center">
+                                  <h4 className="font-bold text-[#0a3d5c]">
+                                    {v.nom}
+                                  </h4>
+                                  <span className="text-xs px-3 py-1 rounded-full bg-gray-100">
+                                    {v.capacite_max - (v.nb_inscrits || 0)}{" "}
+                                    places
+                                  </span>
                                 </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {/* Infos brute */}
-                        {vagueSelected && (
-                          <div className="mt-3 p-4 bg-gray-50 border rounded-xl text-sm space-y-1">
-                            <p>
-                              <b>Vague :</b> {vagueSelected.nom}
-                            </p>
-                            <p>
-                              <b>Niveau :</b> {vagueSelected.niveau_nom}
-                            </p>
-                            <p>
-                              <b>Salle :</b> {vagueSelected.salle_nom}
-                            </p>
-                            <p>
-                              <b>Horaires :</b> {vagueSelected.horaires_resume}
-                            </p>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  📍 {v.salle_nom}
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                  🕒 {v.horaires_resume}
+                                </p>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </>
@@ -416,7 +351,6 @@ const InscriptionEtudiant = () => {
                   </>
                 )}
 
-                {/* Email */}
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center">
                     <Mail size={18} className="text-gray-400" />
@@ -432,7 +366,6 @@ const InscriptionEtudiant = () => {
                   />
                 </div>
 
-                {/* Password */}
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
@@ -452,7 +385,6 @@ const InscriptionEtudiant = () => {
                   </button>
                 </div>
 
-                {/* Submit */}
                 <button
                   type="submit"
                   disabled={loading}
