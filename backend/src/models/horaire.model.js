@@ -20,7 +20,7 @@ class HoraireModel {
 
     if (filters.actif !== undefined) {
       query += " AND actif = ?";
-      params.push(filters.actif);
+      params.push(filters.actif === "true" ? 1 : 0);
     }
 
     query += " ORDER BY heure_debut";
@@ -63,10 +63,9 @@ class HoraireModel {
 
   // Supprimer (soft delete)
   static async delete(id) {
-    const [result] = await pool.execute(
-      "UPDATE horaires SET actif = FALSE WHERE id = ?",
-      [id],
-    );
+    const [result] = await pool.execute("DELETE from horaires WHERE id = ?", [
+      id,
+    ]);
 
     return result.affectedRows > 0;
   }

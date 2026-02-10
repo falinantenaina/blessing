@@ -8,7 +8,7 @@ class JourModel {
 
     if (filters.actif !== undefined) {
       query += " AND actif = ?";
-      params.push(filters.actif);
+      params.push(filters.actif === "true" ? 1 : 0);
     }
 
     query += " ORDER BY ordre";

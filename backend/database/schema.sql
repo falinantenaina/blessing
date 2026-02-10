@@ -234,11 +234,11 @@ INSERT INTO jours (nom, ordre) VALUES
 
 -- Insertion des horaires par défaut
 INSERT INTO horaires (heure_debut, heure_fin, libelle) VALUES
-('08:00:00', '10:00:00', 'Matin 1 (08h-10h)'),
-('10:00:00', '12:00:00', 'Matin 2 (10h-12h)'),
+('08:00:00', '10:00:00', 'Matin (08h-10h)'),
+('10:00:00', '12:00:00', 'Matin (10h-12h)'),
 ('12:00:00', '14:00:00', 'Midi (12h-14h)'),
-('14:00:00', '16:00:00', 'Après-midi 1 (14h-16h)'),
-('16:00:00', '18:00:00', 'Après-midi 2 (16h-18h)'),
+('14:00:00', '16:00:00', 'Après-midi (14h-16h)'),
+('16:00:00', '18:00:00', 'Après-midi 16h-18h)'),
 ('18:00:00', '20:00:00', 'Soir (18h-20h)');
 
 -- Insertion des niveaux par défaut

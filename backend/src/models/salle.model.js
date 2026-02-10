@@ -28,7 +28,7 @@ class SalleModel {
 
     if (filters.actif !== undefined) {
       query += " AND s.actif = ?";
-      params.push(filters.actif);
+      params.push(filters.actif === "true" ? 1 : 0);
     }
 
     if (filters.ecole_id) {
