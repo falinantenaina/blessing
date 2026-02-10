@@ -1,10 +1,10 @@
-import { pool } from '../config/database.js';
+import { pool } from "../config/database.js";
 
 class VagueModel {
   // Créer une vague avec horaires multiples
   static async create(vagueData) {
     const connection = await pool.getConnection();
-    
+
     try {
       await connection.beginTransaction();
 
@@ -15,17 +15,17 @@ class VagueModel {
         salle_id,
         date_debut,
         date_fin,
-        statut = 'planifie',
+        statut = "planifie",
         remarques = null,
-        horaires = [] // Array de { jour_id, horaire_id }
+        horaires = [], // Array de { jour_id, horaire_id }
       } = vagueData;
 
       // Récupérer la capacité de la salle
       let capacite_max = 20; // Par défaut
       if (salle_id) {
         const [salleRows] = await connection.execute(
-          'SELECT capacite FROM salles WHERE id = ?',
-          [salle_id]
+          "SELECT capacite FROM salles WHERE id = ?",
+          [salle_id],
         );
         if (salleRows.length > 0) {
           capacite_max = salleRows[0].capacite;
@@ -36,7 +36,17 @@ class VagueModel {
       const [result] = await connection.execute(
         `INSERT INTO vagues (nom, niveau_id, enseignant_id, salle_id, date_debut, date_fin, capacite_max, statut, remarques)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [nom, niveau_id, enseignant_id, salle_id, date_debut, date_fin, capacite_max, statut, remarques]
+        [
+          nom,
+          niveau_id,
+          enseignant_id,
+          salle_id,
+          date_debut,
+          date_fin,
+          capacite_max,
+          statut,
+          remarques,
+        ],
       );
 
       const vagueId = result.insertId;
@@ -47,14 +57,13 @@ class VagueModel {
           await connection.execute(
             `INSERT INTO vague_horaires (vague_id, jour_id, horaire_id)
              VALUES (?, ?, ?)`,
-            [vagueId, horaire.jour_id, horaire.horaire_id]
+            [vagueId, horaire.jour_id, horaire.horaire_id],
           );
         }
       }
 
       await connection.commit();
       return vagueId;
-
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -76,7 +85,7 @@ class VagueModel {
        LEFT JOIN utilisateurs u ON v.enseignant_id = u.id
        LEFT JOIN salles s ON v.salle_id = s.id
        WHERE v.id = ?`,
-      [id]
+      [id],
     );
 
     if (rows.length === 0) return null;
@@ -91,12 +100,12 @@ class VagueModel {
        JOIN horaires h ON vh.horaire_id = h.id
        WHERE vh.vague_id = ?
        ORDER BY j.ordre, h.heure_debut`,
-      [id]
+      [id],
     );
 
     return {
       ...rows[0],
-      horaires
+      horaires,
     };
   }
 
@@ -117,27 +126,27 @@ class VagueModel {
     const params = [];
 
     if (filters.statut) {
-      query += ' AND v.statut = ?';
+      query += " AND v.statut = ?";
       params.push(filters.statut);
     }
 
     if (filters.niveau_id) {
-      query += ' AND v.niveau_id = ?';
+      query += " AND v.niveau_id = ?";
       params.push(filters.niveau_id);
     }
 
     if (filters.enseignant_id) {
-      query += ' AND v.enseignant_id = ?';
+      query += " AND v.enseignant_id = ?";
       params.push(filters.enseignant_id);
     }
 
     if (filters.salle_id) {
-      query += ' AND v.salle_id = ?';
+      query += " AND v.salle_id = ?";
       params.push(filters.salle_id);
     }
 
     if (filters.search) {
-      query += ' AND v.nom LIKE ?';
+      query += " AND v.nom LIKE ?";
       params.push(`%${filters.search}%`);
     }
 
@@ -145,7 +154,7 @@ class VagueModel {
     const limit = parseInt(filters.limit) || 10;
     const offset = (page - 1) * limit;
 
-    query += ' ORDER BY v.date_debut DESC LIMIT ? OFFSET ?';
+    query += " ORDER BY v.date_debut DESC LIMIT ? OFFSET ?";
     params.push(limit, offset);
 
     const [rows] = await pool.execute(query, params);
@@ -160,34 +169,34 @@ class VagueModel {
            JOIN horaires h ON vh.horaire_id = h.id
            WHERE vh.vague_id = ?
            ORDER BY j.ordre, h.heure_debut`,
-          [vague.id]
+          [vague.id],
         );
-        
+
         return {
           ...vague,
-          horaires_resume: horaires.map(h => 
-            `${h.jour_nom} ${h.heure_debut}-${h.heure_fin}`
-          ).join(', ')
+          horaires_resume: horaires
+            .map((h) => `${h.jour_nom} ${h.heure_debut}-${h.heure_fin}`)
+            .join(", "),
         };
-      })
+      }),
     );
 
     // Compter le total
-    let countQuery = 'SELECT COUNT(*) as total FROM vagues v WHERE 1=1';
+    let countQuery = "SELECT COUNT(*) as total FROM vagues v WHERE 1=1";
     const countParams = [];
 
     if (filters.statut) {
-      countQuery += ' AND v.statut = ?';
+      countQuery += " AND v.statut = ?";
       countParams.push(filters.statut);
     }
 
     if (filters.niveau_id) {
-      countQuery += ' AND v.niveau_id = ?';
+      countQuery += " AND v.niveau_id = ?";
       countParams.push(filters.niveau_id);
     }
 
     if (filters.search) {
-      countQuery += ' AND v.nom LIKE ?';
+      countQuery += " AND v.nom LIKE ?";
       countParams.push(`%${filters.search}%`);
     }
 
@@ -197,14 +206,14 @@ class VagueModel {
       vagues: vaguesAvecHoraires,
       total: countResult[0].total,
       page,
-      limit
+      limit,
     };
   }
 
   // Mettre à jour une vague
   static async update(id, vagueData) {
     const connection = await pool.getConnection();
-    
+
     try {
       await connection.beginTransaction();
 
@@ -213,8 +222,8 @@ class VagueModel {
       // Si la salle change, mettre à jour la capacité
       if (vagueFields.salle_id) {
         const [salleRows] = await connection.execute(
-          'SELECT capacite FROM salles WHERE id = ?',
-          [vagueFields.salle_id]
+          "SELECT capacite FROM salles WHERE id = ?",
+          [vagueFields.salle_id],
         );
         if (salleRows.length > 0) {
           vagueFields.capacite_max = salleRows[0].capacite;
@@ -225,8 +234,8 @@ class VagueModel {
       const fields = [];
       const values = [];
 
-      Object.keys(vagueFields).forEach(key => {
-        if (vagueFields[key] !== undefined && key !== 'id') {
+      Object.keys(vagueFields).forEach((key) => {
+        if (vagueFields[key] !== undefined && key !== "id") {
           fields.push(`${key} = ?`);
           values.push(vagueFields[key]);
         }
@@ -235,8 +244,8 @@ class VagueModel {
       if (fields.length > 0) {
         values.push(id);
         await connection.execute(
-          `UPDATE vagues SET ${fields.join(', ')} WHERE id = ?`,
-          values
+          `UPDATE vagues SET ${fields.join(", ")} WHERE id = ?`,
+          values,
         );
       }
 
@@ -244,8 +253,8 @@ class VagueModel {
       if (horaires !== undefined) {
         // Supprimer les anciens horaires
         await connection.execute(
-          'DELETE FROM vague_horaires WHERE vague_id = ?',
-          [id]
+          "DELETE FROM vague_horaires WHERE vague_id = ?",
+          [id],
         );
 
         // Ajouter les nouveaux
@@ -254,7 +263,7 @@ class VagueModel {
             await connection.execute(
               `INSERT INTO vague_horaires (vague_id, jour_id, horaire_id)
                VALUES (?, ?, ?)`,
-              [id, horaire.jour_id, horaire.horaire_id]
+              [id, horaire.jour_id, horaire.horaire_id],
             );
           }
         }
@@ -262,7 +271,6 @@ class VagueModel {
 
       await connection.commit();
       return true;
-
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -273,16 +281,20 @@ class VagueModel {
 
   // Supprimer une vague
   static async delete(id) {
-    const [result] = await pool.execute(
-      'DELETE FROM vagues WHERE id = ?',
-      [id]
-    );
+    const [result] = await pool.execute("DELETE FROM vagues WHERE id = ?", [
+      id,
+    ]);
 
     return result.affectedRows > 0;
   }
 
   // Vérifier la disponibilité d'un enseignant
-  static async checkEnseignantDisponibilite(enseignantId, jourId, horaireId, excludeVagueId = null) {
+  static async checkEnseignantDisponibilite(
+    enseignantId,
+    jourId,
+    horaireId,
+    excludeVagueId = null,
+  ) {
     let query = `
       SELECT COUNT(*) as count
       FROM vague_horaires vh
@@ -296,7 +308,7 @@ class VagueModel {
     const params = [enseignantId, jourId, horaireId];
 
     if (excludeVagueId) {
-      query += ' AND v.id != ?';
+      query += " AND v.id != ?";
       params.push(excludeVagueId);
     }
 
@@ -312,7 +324,7 @@ class VagueModel {
               (SELECT COUNT(*) FROM inscriptions WHERE vague_id = v.id AND statut = 'actif') as nb_inscrits
        FROM vagues v
        WHERE v.id = ?`,
-      [vagueId]
+      [vagueId],
     );
 
     if (rows.length === 0) return false;
@@ -338,12 +350,12 @@ class VagueModel {
     const params = [];
 
     if (filters.salle_id) {
-      query += ' AND v.salle_id = ?';
+      query += " AND v.salle_id = ?";
       params.push(filters.salle_id);
     }
 
     if (filters.enseignant_id) {
-      query += ' AND v.enseignant_id = ?';
+      query += " AND v.enseignant_id = ?";
       params.push(filters.enseignant_id);
     }
 
@@ -361,17 +373,126 @@ class VagueModel {
            JOIN horaires h ON vh.horaire_id = h.id
            WHERE vh.vague_id = ?
            ORDER BY j.ordre, h.heure_debut`,
-          [vague.id]
+          [vague.id],
         );
-        
+
         return {
           ...vague,
-          horaires
+          horaires,
         };
-      })
+      }),
     );
 
     return vaguesAvecHoraires;
+  }
+
+  //Obtenir la liste des étudiants inscripts à une vague
+
+  static async getEtudiants(vagueId, filters = {}) {
+    // Vérifier que la vague existe
+    const [vagueRows] = await pool.execute(
+      `SELECT v.id, v.nom, v.capacite_max, v.statut,
+              n.code as niveau_code, n.nom as niveau_nom,
+              (SELECT COUNT(*) FROM inscriptions WHERE vague_id = v.id AND statut = 'actif') as nb_inscrits
+       FROM vagues v
+       LEFT JOIN niveaux n ON v.niveau_id = n.id
+       WHERE v.id = ?`,
+      [vagueId],
+    );
+
+    if (vagueRows.length === 0) return null;
+
+    // Construire la requête des étudiants
+    let query = `
+      SELECT 
+        e.id as etudiant_id,
+        e.nom,
+        e.prenom,
+        e.telephone,
+        e.email,
+        e.photo_url,
+        i.id as inscription_id,
+        i.statut as inscription_statut,
+        i.date_inscription,
+        i.remarques,
+        ec.montant_total,
+        ec.montant_paye,
+        ec.montant_restant,
+        ec.frais_inscription_paye,
+        ec.statut as statut_ecolage,
+        (SELECT COUNT(*) FROM livres l WHERE l.inscription_id = i.id AND l.statut_paiement = 'paye') as livres_payes,
+        (SELECT COUNT(*) FROM livres l WHERE l.inscription_id = i.id AND l.statut_livraison = 'livre') as livres_livres
+      FROM inscriptions i
+      JOIN etudiants e ON i.etudiant_id = e.id
+      LEFT JOIN ecolages ec ON i.id = ec.inscription_id
+      WHERE i.vague_id = ?
+    `;
+    const params = [vagueId];
+
+    // Filtre par statut d'inscription
+    if (filters.statut_inscription) {
+      query += " AND i.statut = ?";
+      params.push(filters.statut_inscription);
+    }
+
+    // Filtre par statut de paiement
+    if (filters.statut_ecolage) {
+      query += " AND ec.statut = ?";
+      params.push(filters.statut_ecolage);
+    }
+
+    // Recherche par nom, prénom ou téléphone
+    if (filters.search) {
+      query += " AND (e.nom LIKE ? OR e.prenom LIKE ? OR e.telephone LIKE ?)";
+      const searchTerm = `%${filters.search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    // Compter le total avant pagination
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM inscriptions i
+      JOIN etudiants e ON i.etudiant_id = e.id
+      LEFT JOIN ecolages ec ON i.id = ec.inscription_id
+      WHERE i.vague_id = ?
+    `;
+    const countParams = [vagueId];
+
+    if (filters.statut_inscription) {
+      countQuery += " AND i.statut = ?";
+      countParams.push(filters.statut_inscription);
+    }
+    if (filters.statut_ecolage) {
+      countQuery += " AND ec.statut = ?";
+      countParams.push(filters.statut_ecolage);
+    }
+    if (filters.search) {
+      countQuery +=
+        " AND (e.nom LIKE ? OR e.prenom LIKE ? OR e.telephone LIKE ?)";
+      const searchTerm = `%${filters.search}%`;
+      countParams.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    const [countResult] = await pool.execute(countQuery, countParams);
+    const total = countResult[0].total;
+
+    // Pagination
+    const page = parseInt(filters.page) || 1;
+    const limit = parseInt(filters.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    query += " ORDER BY e.nom ASC, e.prenom ASC LIMIT ? OFFSET ?";
+    params.push(limit, offset);
+
+    const [etudiants] = await pool.execute(query, params);
+
+    return {
+      vague: vagueRows[0],
+      etudiants,
+      total,
+      page,
+      limit,
+    };
   }
 }
 

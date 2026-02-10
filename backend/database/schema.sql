@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS etudiants (
     INDEX idx_actif (actif)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+
 -- Table des écoles/centres de formation
 CREATE TABLE IF NOT EXISTS ecoles (
     id INT PRIMARY KEY AUTO_INCREMENT,

@@ -1,31 +1,38 @@
-import express from 'express';
+import express from "express";
 import {
-  getVagues,
-  getVagueById,
   createVague,
-  updateVague,
   deleteVague,
+  getEtudiantsByVague,
   getPlanning,
-  getPlanningEnseignant
-} from '../controllers/vague.controller.js';
-import { authenticate, isAdminOrSecretaire } from '../middleware/auth.middleware.js';
+  getPlanningEnseignant,
+  getVagueById,
+  getVagues,
+  updateVague,
+} from "../controllers/vague.controller.js";
+import {
+  authenticate,
+  isAdminOrSecretaire,
+} from "../middleware/auth.middleware.js";
 
 const router = express.Router();
+
+router.get("/", getVagues);
+router.get("/planning", getPlanning);
+router.get("/:id", getVagueById);
 
 // Toutes les routes nécessitent une authentification
 router.use(authenticate);
 
 // Routes générales
-router.get('/', getVagues);
-router.get('/planning', getPlanning);
-router.get('/:id', getVagueById);
 
 // Planning d'un enseignant
-router.get('/enseignant/:enseignantId/planning', getPlanningEnseignant);
+router.get("/enseignant/:enseignantId/planning", getPlanningEnseignant);
 
 // Routes protégées (admin/secrétaire uniquement)
-router.post('/', isAdminOrSecretaire, createVague);
-router.put('/:id', isAdminOrSecretaire, updateVague);
-router.delete('/:id', isAdminOrSecretaire, deleteVague);
+router.post("/", isAdminOrSecretaire, createVague);
+router.put("/:id", isAdminOrSecretaire, updateVague);
+router.delete("/:id", isAdminOrSecretaire, deleteVague);
+// Routes étudiants inscrits
+router.get("/:id/etudiants", isAdminOrSecretaire, getEtudiantsByVague);
 
 export default router;

@@ -285,3 +285,31 @@ export const getPlanningEnseignant = asyncHandler(async (req, res) => {
     "Planning de l'enseignant récupéré avec succès",
   );
 });
+
+// Obtenier la liste des étudiants inscripts à une vague
+export const getEtudiantsByVague = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const filters = {
+    statut_inscription: req.query.statut_inscription, // actif | abandonne | termine | suspendu
+    statut_ecolage: req.query.statut_ecolage, // non_paye | partiel | paye
+    search: req.query.search,
+    page: req.query.page || 1,
+    limit: req.query.limit || 20,
+  };
+
+  const result = await VagueModel.getEtudiants(id, filters);
+
+  if (!result) {
+    return errorResponse(res, "Vague introuvable", 404);
+  }
+
+  return paginatedResponse(
+    res,
+    result.etudiants,
+    result.page,
+    result.limit,
+    result.total,
+    `Liste des étudiants de la vague "${result.vague.nom}" récupérée avec succès`,
+  );
+});
