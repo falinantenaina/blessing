@@ -37,8 +37,6 @@ CREATE TABLE IF NOT EXISTS etudiants (
     INDEX idx_actif (actif)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
-
 -- Table des écoles/centres de formation
 CREATE TABLE IF NOT EXISTS ecoles (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -58,8 +56,8 @@ CREATE TABLE IF NOT EXISTS niveaux (
     nom VARCHAR(100) NOT NULL,
     description TEXT,
     frais_inscription DECIMAL(10, 2) NOT NULL DEFAULT 0,
-    frais_ecolage DECIMAL(10, 2) NOT NULL DEFAULT 0,
-    prix_livre DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    prix_livre_cours DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    prix_livre_exercices DECIMAL(10, 2) NOT NULL DEFAULT 0,
     duree_mois INT NOT NULL DEFAULT 2,
     actif BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -141,40 +139,29 @@ CREATE TABLE IF NOT EXISTS inscriptions (
     id INT PRIMARY KEY AUTO_INCREMENT,
     etudiant_id INT NOT NULL,
     vague_id INT NOT NULL,
-    date_inscription TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
-    statut ENUM('actif', 'abandonne', 'termine', 'suspendu') DEFAULT 'actif',
+    date_inscription TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    statut_inscription ENUM('en_attente', 'validee', 'rejetee', 'actif', 'abandonne', 'termine', 'suspendu') DEFAULT 'en_attente',
+    frais_inscription_paye BOOLEAN DEFAULT FALSE,
+    date_validation TIMESTAMP NULL,
+    validee_par INT NULL,
     remarques TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (etudiant_id) REFERENCES etudiants(id) ON DELETE CASCADE,   
     FOREIGN KEY (vague_id) REFERENCES vagues(id) ON DELETE CASCADE,
+    FOREIGN KEY (validee_par) REFERENCES utilisateurs(id) ON DELETE SET NULL,
     UNIQUE KEY unique_inscription (etudiant_id, vague_id),
     INDEX idx_etudiant (etudiant_id),
     INDEX idx_vague (vague_id),
-    INDEX idx_statut (statut)
+    INDEX idx_statut (statut_inscription),
+    INDEX idx_validation (statut_inscription, date_validation)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Table des écolages (frais de scolarité par étudiant)
-CREATE TABLE IF NOT EXISTS ecolages (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    inscription_id INT NOT NULL,
-    montant_total DECIMAL(10, 2) NOT NULL,
-    montant_paye DECIMAL(10, 2) DEFAULT 0,
-    montant_restant DECIMAL(10, 2) NOT NULL,
-    frais_inscription_paye BOOLEAN DEFAULT FALSE,
-    statut_ecolage ENUM('non_paye', 'partiel', 'paye') DEFAULT 'non_paye',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (inscription_id) REFERENCES inscriptions(id) ON DELETE CASCADE,
-    INDEX idx_inscription (inscription_id),
-    INDEX idx_statut (statut_ecolage)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Table des livres (2 livres par étudiant)
+-- Table des livres (livre de cours et livre d'exercices)
 CREATE TABLE IF NOT EXISTS livres (
     id INT PRIMARY KEY AUTO_INCREMENT,
     inscription_id INT NOT NULL,
-    numero_livre ENUM('1', '2') NOT NULL,
+    type_livre ENUM('cours', 'exercices') NOT NULL,
     prix DECIMAL(10, 2) NOT NULL,
     statut_paiement ENUM('non_paye', 'paye') DEFAULT 'non_paye',
     statut_livraison ENUM('non_livre', 'livre') DEFAULT 'non_livre',
@@ -183,19 +170,21 @@ CREATE TABLE IF NOT EXISTS livres (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (inscription_id) REFERENCES inscriptions(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_livre_inscription (inscription_id, numero_livre),
-    INDEX idx_inscription (inscription_id)
+    UNIQUE KEY unique_livre_inscription (inscription_id, type_livre),
+    INDEX idx_inscription (inscription_id),
+    INDEX idx_type (type_livre)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Table des paiements
+-- Table des paiements (inscription et livres seulement)
 CREATE TABLE IF NOT EXISTS paiements (
     id INT PRIMARY KEY AUTO_INCREMENT,
     inscription_id INT NOT NULL,
-    type_paiement ENUM('inscription', 'ecolage', 'livre') NOT NULL,
+    type_paiement ENUM('inscription', 'livre') NOT NULL,
+    type_livre ENUM('cours', 'exercices') NULL COMMENT 'Requis si type_paiement = livre',
     montant DECIMAL(10, 2) NOT NULL,
     date_paiement DATE NOT NULL,
-    methode_paiement ENUM('especes', 'carte', 'virement', 'cheque', 'mobile_money') NOT NULL,
-    reference VARCHAR(100),
+    methode_paiement ENUM('especes', 'mvola') NOT NULL,
+    reference_mvola VARCHAR(100) NULL COMMENT 'Requis si methode_paiement = mvola',
     remarques TEXT,
     utilisateur_id INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -203,7 +192,8 @@ CREATE TABLE IF NOT EXISTS paiements (
     FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id) ON DELETE SET NULL,
     INDEX idx_inscription (inscription_id),
     INDEX idx_date (date_paiement),
-    INDEX idx_type (type_paiement)
+    INDEX idx_type (type_paiement),
+    INDEX idx_methode (methode_paiement)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table de remplacement des enseignants
@@ -240,19 +230,18 @@ INSERT INTO horaires (heure_debut, heure_fin, libelle) VALUES
 ('10:00:00', '12:00:00', 'Matin (10h-12h)'),
 ('12:00:00', '14:00:00', 'Midi (12h-14h)'),
 ('14:00:00', '16:00:00', 'Après-midi (14h-16h)'),
-('16:00:00', '18:00:00', 'Après-midi 16h-18h)'),
+('16:00:00', '18:00:00', 'Après-midi (16h-18h)'),
 ('18:00:00', '20:00:00', 'Soir (18h-20h)');
 
 -- Insertion des niveaux par défaut
-INSERT INTO niveaux (code, nom, description, frais_inscription, frais_ecolage, prix_livre) VALUES
-('A1', 'Débutant A1', 'Niveau débutant selon le CECRL', 50000, 200000, 15000),
-('A2', 'Élémentaire A2', 'Niveau élémentaire selon le CECRL', 50000, 220000, 17500),
-('B1', 'Intermédiaire B1', 'Niveau intermédiaire selon le CECRL', 50000, 250000, 20000),
-('B2', 'Intermédiaire avancé B2', 'Niveau intermédiaire avancé selon le CECRL', 50000, 280000, 22500);
+INSERT INTO niveaux (code, nom, description, frais_inscription, prix_livre_cours, prix_livre_exercices) VALUES
+('A1', 'Débutant A1', 'Niveau débutant ', 120000, 15000, 12000),
+('A2', 'Élémentaire A2', 'Niveau élémentaire', 140000, 17500, 14000),
+('B1', 'Intermédiaire B1', 'Niveau intermédiair', 160000, 20000, 16000);
 
 -- Insertion d'une école par défaut
 INSERT INTO ecoles (nom, adresse, telephone, email) VALUES
-('Centre de Formation Principal', '123 Rue de l\'Éducation, Antananarivo', '+261 20 00 000 00', 'contact@centre-formation.mg');
+('Blessing School', 'Antananarivo', '+261 20 00 000 00', 'contact@centre-formation.mg');
 
 -- Insertion de salles par défaut avec capacités
 INSERT INTO salles (nom, ecole_id, capacite, equipements) VALUES
@@ -261,13 +250,9 @@ INSERT INTO salles (nom, ecole_id, capacite, equipements) VALUES
 ('Salle C', 1, 15, 'Tableau blanc, Climatisation'),
 ('Salle D', 1, 30, 'Tableau blanc, Projecteur, Climatisation, Ordinateurs');
 
-('Salle A', 1, 20, 'Tableau blanc, Projecteur, Climatisation'),
-('Salle B', 1, 25, 'Tableau blanc, Projecteur'),
-('Salle C', 1, 15, 'Tableau blanc, Climatisation');
-
 -- Insertion d'un utilisateur admin par défaut (password: Admin123!)
 INSERT INTO utilisateurs (nom, prenom, email, password, role, telephone) VALUES
-('Admin', '', 'admin@blessing.mg', '$2b$10$G3WhXaY/bcYXj66CIYGqautSe9WkgcKIkHVgFYWNiZbkQCd8fLW2G', 'admin', '+261 32 12 345 67');
+('Admin', 'Système', 'admin@blessing.mg', '$2b$10$G3WhXaY/bcYXj66CIYGqautSe9WkgcKIkHVgFYWNiZbkQCd8fLW2G', 'admin', '+261 32 12 345 67');
 
 -- Insertion d'un secrétaire par défaut (password: Secret123!)
 INSERT INTO utilisateurs (nom, prenom, email, telephone, password, role) VALUES

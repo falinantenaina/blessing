@@ -17,7 +17,7 @@ export const inscriptionPublique = asyncHandler(async (req, res) => {
     email,
     vague_id,
     montant_paye,
-    reference_paiement,
+    reference_mvola,
     methode_paiement,
     remarques,
   } = req.body;
@@ -35,6 +35,15 @@ export const inscriptionPublique = asyncHandler(async (req, res) => {
   const phoneRegex = /^(\+261|0)(32|33|34|37|38)\s?\d{2}\s?\d{3}\s?\d{2}$/;
   if (!phoneRegex.test(telephone.replace(/\s/g, ""))) {
     return errorResponse(res, "Le numéro de téléphone n'est pas valide", 400);
+  }
+
+  // Validation pour mvola
+  if (methode_paiement === "mvola" && !reference_mvola) {
+    return errorResponse(
+      res,
+      "La référence MVola est requise pour ce mode de paiement",
+      400,
+    );
   }
 
   // Vérifier que la vague existe et est disponible
@@ -64,10 +73,8 @@ export const inscriptionPublique = asyncHandler(async (req, res) => {
     let etudiantId;
 
     if (etudiant) {
-      // Étudiant existe déjà, utiliser son ID
       etudiantId = etudiant.id;
     } else {
-      // Créer un nouveau étudiant
       etudiantId = await EtudiantModel.create({
         nom,
         prenom,
@@ -85,35 +92,31 @@ export const inscriptionPublique = asyncHandler(async (req, res) => {
       return errorResponse(res, "Vous êtes déjà inscrit à cette vague", 409);
     }
 
-    // Créer l'inscription avec les informations de paiement
+    // Déterminer les paiements effectués
+    const frais_inscription_paye =
+      montant_paye && montant_paye >= niveau.frais_inscription;
+    const montantRestant = montant_paye ? parseFloat(montant_paye) : 0;
+
+    // Créer l'inscription avec statut EN ATTENTE
     const inscriptionData = {
       etudiant_id: etudiantId,
       vague_id: vague_id,
-      frais_inscription_paye:
-        montant_paye && montant_paye >= niveau.frais_inscription,
-      montant_ecolage_initial: 0, // Aucun paiement d'écolage pour l'instant
-      livre1_paye: false,
-      livre2_paye: false,
-      remarques: remarques || "Inscription publique",
+      frais_inscription_paye,
+      livre_cours_paye: false,
+      livre_exercices_paye: false,
+      methode_paiement: methode_paiement || "especes",
+      reference_mvola: reference_mvola || null,
+      remarques: remarques || "Inscription publique en attente de validation",
+      statut_inscription: "en_attente", // EN ATTENTE DE VALIDATION PAR L'ADMIN
     };
 
     const result = await InscriptionModel.createComplete(inscriptionData);
 
-    // Ajouter le paiement si un montant est fourni
-    if (montant_paye && montant_paye > 0) {
-      await InscriptionModel.addPaiement({
-        inscription_id: result.inscriptionId,
-        type_paiement: "inscription",
-        montant: montant_paye,
-        date_paiement: new Date(),
-        methode_paiement: methode_paiement || "mobile_money",
-        reference: reference_paiement || "",
-        remarques: "Paiement inscription publique",
-      });
-    }
-
-    // Récupérer les détails complets de l'inscription
-    const inscription = await InscriptionModel.findById(result.inscriptionId);
+    // Calculer le montant total
+    const montant_total =
+      parseFloat(niveau.frais_inscription) +
+      parseFloat(niveau.prix_livre_cours) +
+      parseFloat(niveau.prix_livre_exercices);
 
     return successResponse(
       res,
@@ -122,26 +125,23 @@ export const inscriptionPublique = asyncHandler(async (req, res) => {
         etudiant_id: etudiantId,
         vague_nom: vague.nom,
         niveau: niveau.code,
-        montant_total:
-          niveau.frais_inscription +
-          niveau.frais_ecolage +
-          niveau.prix_livre * 2,
+        montant_total,
         montant_paye: montant_paye || 0,
-        montant_restant:
-          niveau.frais_inscription +
-          niveau.frais_ecolage +
-          niveau.prix_livre * 2 -
-          (montant_paye || 0),
-        statut: "en_attente", // En attente de confirmation/validation
+        montant_restant: montant_total - (montant_paye || 0),
+        statut: "en_attente",
         message:
-          "Inscription effectuée avec succès ! Vous recevrez une confirmation par SMS/Email.",
+          "Inscription enregistrée ! Elle sera validée par un administrateur sous peu. Vous recevrez une confirmation par SMS/Email.",
       },
       "Inscription créée avec succès",
       201,
     );
   } catch (error) {
     console.error("Erreur lors de l'inscription publique:", error);
-    return errorResponse(res, "Erreur lors de l'inscription", 500);
+    return errorResponse(
+      res,
+      error.message || "Erreur lors de l'inscription",
+      500,
+    );
   }
 });
 
@@ -149,30 +149,36 @@ export const inscriptionPublique = asyncHandler(async (req, res) => {
 export const getVaguesDisponibles = asyncHandler(async (req, res) => {
   const vagues = await VagueModel.findAll({
     statut: "planifie,en_cours",
-    disponible_inscription: true,
+    page: 1,
+    limit: 100,
   });
 
   // Enrichir avec les informations de niveau
   const vaguesAvecNiveau = await Promise.all(
-    vagues.data.map(async (vague) => {
+    vagues.vagues.map(async (vague) => {
       const niveau = await NiveauModel.findById(vague.niveau_id);
       return {
         ...vague,
         frais_inscription: niveau.frais_inscription,
-        frais_ecolage: niveau.frais_ecolage,
-        prix_livre: niveau.prix_livre,
+        prix_livre_cours: niveau.prix_livre_cours,
+        prix_livre_exercices: niveau.prix_livre_exercices,
         montant_total:
-          niveau.frais_inscription +
-          niveau.frais_ecolage +
-          niveau.prix_livre * 2,
+          parseFloat(niveau.frais_inscription) +
+          parseFloat(niveau.prix_livre_cours) +
+          parseFloat(niveau.prix_livre_exercices),
         places_disponibles: vague.capacite_max - vague.nb_inscrits,
       };
     }),
   );
 
+  // Filtrer uniquement les vagues avec places disponibles
+  const vaguesDisponibles = vaguesAvecNiveau.filter(
+    (v) => v.places_disponibles > 0,
+  );
+
   return successResponse(
     res,
-    vaguesAvecNiveau,
+    vaguesDisponibles,
     "Vagues disponibles récupérées avec succès",
   );
 });
@@ -196,8 +202,25 @@ export const verifierInscription = asyncHandler(async (req, res) => {
         prenom: etudiant.prenom,
         telephone: etudiant.telephone,
       },
-      inscriptions: inscriptions,
+      inscriptions: inscriptions.map((i) => ({
+        ...i,
+        statut_libelle: getStatutLibelle(i.statut_inscription),
+      })),
     },
     "Informations récupérées avec succès",
   );
 });
+
+// Fonction helper pour le libellé du statut
+function getStatutLibelle(statut) {
+  const libelles = {
+    en_attente: "En attente de validation",
+    validee: "Validée",
+    rejetee: "Rejetée",
+    actif: "Active",
+    abandonne: "Abandonnée",
+    termine: "Terminée",
+    suspendu: "Suspendue",
+  };
+  return libelles[statut] || statut;
+}

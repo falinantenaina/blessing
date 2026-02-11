@@ -42,7 +42,7 @@ export const authService = {
 // ============================================
 // VAGUES SERVICES
 // ============================================
-export const vagueService = {
+/* export const vagueService = {
   getAll: async (params = {}) => {
     const response = await axios.get("/vagues", { params });
     return response.data;
@@ -84,8 +84,91 @@ export const vagueService = {
     const response = await axios.get(`/vagues/${id}/capacite`);
     return response.data;
   },
-};
+}; */
 
+export const vagueService = {
+  /**
+   * Récupérer toutes les vagues avec filtres
+   */
+  getAll: async (params = {}) => {
+    const response = await axios.get("/vagues", { params });
+    return response.data;
+  },
+
+  /**
+   * Récupérer une vague par ID (avec inscriptions incluses)
+   */
+  getById: async (id) => {
+    const response = await axios.get(`/vagues/${id}`);
+    return response.data;
+  },
+
+  /**
+   * ✅ NOUVEAU : Récupérer les inscriptions d'une vague
+   */
+  getInscriptions: async (id) => {
+    const response = await axios.get(`/vagues/${id}/inscriptions`);
+    return response.data;
+  },
+
+  /**
+   * Créer une nouvelle vague
+   */
+  create: async (vagueData) => {
+    const response = await axios.post("/vagues", vagueData);
+    return response.data;
+  },
+
+  /**
+   * Modifier une vague
+   */
+  update: async (id, vagueData) => {
+    const response = await axios.put(`/vagues/${id}`, vagueData);
+    return response.data;
+  },
+
+  /**
+   * Supprimer une vague
+   */
+  delete: async (id) => {
+    const response = await axios.delete(`/vagues/${id}`);
+    return response.data;
+  },
+
+  /**
+   * ✅ NOUVEAU : Recalculer le nombre d'inscrits
+   */
+  refreshInscritCount: async (id) => {
+    const response = await axios.post(`/vagues/${id}/refresh-count`);
+    return response.data;
+  },
+
+  /**
+   * Récupérer le planning
+   */
+  getPlanning: async (filters = {}) => {
+    const response = await axios.get("/vagues/planning", { params: filters });
+    return response.data;
+  },
+
+  /**
+   * Récupérer le planning d'un enseignant
+   */
+  getPlanningEnseignant: async (enseignantId) => {
+    const response = await axios.get(
+      `/vagues/planning/enseignant/${enseignantId}`,
+    );
+    return response.data;
+  },
+
+  /**
+   * Vérifier la capacité d'une vague
+   */
+  checkCapacite: async (id) => {
+    const response = await axios.get(`/vagues/${id}/capacite`);
+    return response.data;
+  },
+};
 // ============================================
 // NIVEAUX SERVICES (ENDPOINT CORRIGÉ)
 // ============================================
@@ -284,7 +367,7 @@ export const userService = {
 // ============================================
 // INSCRIPTIONS SERVICES
 // ============================================
-export const inscriptionService = {
+/* export const inscriptionService = {
   createComplete: async (data) => {
     const response = await axios.post("/inscriptions/direct", data);
     return response.data;
@@ -317,8 +400,62 @@ export const inscriptionService = {
     const response = await axios.get("/inscriptions/stats", { params });
     return response.data;
   },
-};
+}; */
+export const inscriptionService = {
+  // ✅ Création inscription complète par admin (validée directement)
+  createComplete: async (data) => {
+    const response = await axios.post("/inscriptions/direct", data);
+    return response.data;
+  },
 
+  // ✅ Récupérer inscription par ID
+  getById: async (id) => {
+    const response = await axios.get(`/inscriptions/${id}`);
+    return response.data;
+  },
+
+  // ✅ Récupérer inscriptions d'un étudiant
+  getByEtudiant: async (etudiantId) => {
+    const response = await axios.get(`/inscriptions/student/${etudiantId}`);
+    return response.data;
+  },
+
+  // ✅ NOUVEAU : Récupérer les inscriptions en attente de validation
+  getPendingValidation: async (params = {}) => {
+    const response = await axios.get("/inscriptions/pending", { params });
+    return response.data;
+  },
+
+  // ✅ NOUVEAU : Valider ou rejeter une inscription
+  validerInscription: async (inscriptionId, data) => {
+    const response = await axios.put(
+      `/inscriptions/${inscriptionId}/valider`,
+      data,
+    );
+    return response.data;
+  },
+
+  // ✅ Ajouter un paiement
+  addPaiement: async (data) => {
+    const response = await axios.post("/inscriptions/paiements", data);
+    return response.data;
+  },
+
+  // ✅ Modifier le statut d'un livre
+  updateLivreStatut: async (inscriptionId, typeLivre, data) => {
+    const response = await axios.patch(
+      `/inscriptions/${inscriptionId}/livres/${typeLivre}`,
+      data,
+    );
+    return response.data;
+  },
+
+  // ✅ Statistiques
+  getStats: async (params = {}) => {
+    const response = await axios.get("/inscriptions/stats", { params });
+    return response.data;
+  },
+};
 // ============================================
 // FINANCE / ECOLAGES SERVICES
 // ============================================

@@ -31,11 +31,53 @@ export const getVagues = asyncHandler(async (req, res) => {
   );
 });
 
-// Obtenir une vague par ID
+// ✅ MODIFIÉ : Obtenir les inscriptions d'une vague (format simplifié pour modal)
+export const getInscriptions = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Vérifier que la vague existe
+    const vague = await VagueModel.findById(id);
+    if (!vague) {
+      return res.status(404).json({
+        success: false,
+        message: "Vague introuvable",
+      });
+    }
+
+    // Récupérer les inscriptions
+    const inscriptions = await VagueModel.getInscriptionsByVague(id);
+
+    res.json({
+      success: true,
+      data: {
+        vague_id: parseInt(id),
+        vague_nom: vague.nom,
+        total: inscriptions.length,
+        inscriptions,
+      },
+    });
+  } catch (error) {
+    console.error("Erreur récupération inscriptions vague:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des inscriptions",
+      error: error.message,
+    });
+  }
+};
+
+// ✅ MODIFIÉ : Obtenir une vague par ID (avec inscriptions si disponible)
 export const getVagueById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const vague = await VagueModel.findById(id);
+  // Utiliser findByIdWithInscriptions si la méthode existe, sinon findById
+  let vague;
+  if (typeof VagueModel.findByIdWithInscriptions === "function") {
+    vague = await VagueModel.findByIdWithInscriptions(id);
+  } else {
+    vague = await VagueModel.findById(id);
+  }
 
   if (!vague) {
     return errorResponse(res, "Vague introuvable", 404);
@@ -44,7 +86,7 @@ export const getVagueById = asyncHandler(async (req, res) => {
   return successResponse(res, vague, "Vague récupérée avec succès");
 });
 
-// Créer une vague
+// ✅ MODIFIÉ : Créer une vague (initialise nb_inscrits à 0)
 export const createVague = asyncHandler(async (req, res) => {
   const {
     nom,
@@ -98,7 +140,7 @@ export const createVague = asyncHandler(async (req, res) => {
     }
   }
 
-  // Créer la vague
+  // ✅ Créer la vague avec nb_inscrits initialisé à 0
   const vagueId = await VagueModel.create({
     nom,
     niveau_id,
@@ -109,6 +151,7 @@ export const createVague = asyncHandler(async (req, res) => {
     statut,
     remarques,
     horaires,
+    nb_inscrits: 0, // ✅ Initialiser à 0
   });
 
   const vague = await VagueModel.findById(vagueId);
@@ -116,7 +159,7 @@ export const createVague = asyncHandler(async (req, res) => {
   return successResponse(res, vague, "Vague créée avec succès", 201);
 });
 
-// Mettre à jour une vague
+// ✅ MODIFIÉ : Mettre à jour une vague (recalcule nb_inscrits)
 export const updateVague = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
@@ -191,6 +234,11 @@ export const updateVague = asyncHandler(async (req, res) => {
 
   if (!updated) {
     return errorResponse(res, "Erreur lors de la mise à jour", 400);
+  }
+
+  // ✅ NOUVEAU : Recalculer le nombre d'inscrits après la mise à jour
+  if (typeof VagueModel.updateNbInscrits === "function") {
+    await VagueModel.updateNbInscrits(id);
   }
 
   const vague = await VagueModel.findById(id);
@@ -286,7 +334,7 @@ export const getPlanningEnseignant = asyncHandler(async (req, res) => {
   );
 });
 
-// Obtenier la liste des étudiants inscripts à une vague
+// Obtenir la liste des étudiants inscrits à une vague (avec pagination et filtres)
 export const getEtudiantsByVague = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -311,5 +359,36 @@ export const getEtudiantsByVague = asyncHandler(async (req, res) => {
     result.limit,
     result.total,
     `Liste des étudiants de la vague "${result.vague.nom}" récupérée avec succès`,
+  );
+});
+
+// ✅ NOUVEAU : Recalculer manuellement le compteur d'inscrits
+export const refreshInscritCount = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const vague = await VagueModel.findById(id);
+  if (!vague) {
+    return errorResponse(res, "Vague introuvable", 404);
+  }
+
+  // Vérifier que la méthode existe dans le modèle
+  if (typeof VagueModel.updateNbInscrits !== "function") {
+    return errorResponse(
+      res,
+      "Fonctionnalité non disponible : updateNbInscrits manquant dans le modèle",
+      501,
+    );
+  }
+
+  // Mettre à jour le compteur
+  await VagueModel.updateNbInscrits(id);
+
+  // Récupérer la vague mise à jour
+  const vagueUpdated = await VagueModel.findById(id);
+
+  return successResponse(
+    res,
+    vagueUpdated,
+    "Compteur d'inscrits mis à jour avec succès",
   );
 });

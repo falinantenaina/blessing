@@ -494,6 +494,214 @@ class VagueModel {
       limit,
     };
   }
+  async getInscriptionsByVague(vagueId) {
+    const query = `
+      SELECT 
+        i.id,
+        i.etudiant_id,
+        i.date_inscription,
+        i.statut_inscription,
+        i.frais_inscription_paye,
+        i.montant_total,
+        i.montant_paye,
+        i.montant_restant,
+        
+        -- Informations étudiant
+        e.nom as etudiant_nom,
+        e.prenom as etudiant_prenom,
+        e.telephone as etudiant_telephone,
+        e.email as etudiant_email,
+        
+        -- Informations livres
+        (SELECT COUNT(*) FROM livres WHERE inscription_id = i.id AND statut_paiement = 'paye') as nb_livres_payes,
+        (SELECT COUNT(*) FROM livres WHERE inscription_id = i.id) as nb_livres_total
+        
+      FROM inscriptions i
+      INNER JOIN etudiants e ON i.etudiant_id = e.id
+      WHERE i.vague_id = ?
+        AND i.statut_inscription IN ('actif', 'en_attente')
+      ORDER BY i.date_inscription DESC
+    `;
+
+    const [inscriptions] = await pool.execute(query, [vagueId]);
+    return inscriptions;
+  }
+
+  async updateNbInscrits(vagueId) {
+    const query = `
+      UPDATE vagues v
+      SET v.nb_inscrits = (
+        SELECT COUNT(*)
+        FROM inscriptions i
+        WHERE i.vague_id = v.id
+          AND i.statut_inscription IN ('actif', 'en_attente')
+      )
+      WHERE v.id = ?
+    `;
+
+    await pool.execute(query, [vagueId]);
+  }
+
+  async getByIdWithInscriptions(id) {
+    // Récupérer la vague
+    const [vagues] = await pool.execute(
+      `SELECT 
+        v.*,
+        n.code as niveau_code,
+        n.nom as niveau_nom,
+        s.nom as salle_nom,
+        s.capacite as capacite_max,
+        u.nom as enseignant_nom,
+        u.prenom as enseignant_prenom
+      FROM vagues v
+      LEFT JOIN niveaux n ON v.niveau_id = n.id
+      LEFT JOIN salles s ON v.salle_id = s.id
+      LEFT JOIN users u ON v.enseignant_id = u.id
+      WHERE v.id = ?`,
+      [id],
+    );
+
+    if (vagues.length === 0) {
+      return null;
+    }
+
+    const vague = vagues[0];
+
+    // Récupérer les horaires
+    const [horaires] = await pool.execute(
+      `SELECT 
+        vh.id,
+        vh.jour_id,
+        vh.horaire_id,
+        j.nom as jour_nom,
+        h.heure_debut,
+        h.heure_fin,
+        h.libelle
+      FROM vagues_horaires vh
+      INNER JOIN jours j ON vh.jour_id = j.id
+      INNER JOIN horaires h ON vh.horaire_id = h.id
+      WHERE vh.vague_id = ?
+      ORDER BY j.ordre, h.heure_debut`,
+      [id],
+    );
+
+    vague.horaires = horaires;
+
+    const inscriptions = await this.getInscriptionsByVague(id);
+    vague.inscriptions = inscriptions;
+
+    vague.nb_inscrits = inscriptions.length;
+
+    return vague;
+  }
+
+  async getAll(filters = {}) {
+    let query = `
+      SELECT 
+        v.*,
+        n.code as niveau_code,
+        n.nom as niveau_nom,
+        s.nom as salle_nom,
+        s.capacite as capacite_max,
+        u.nom as enseignant_nom,
+        u.prenom as enseignant_prenom,
+        -- ✅ CORRECTION : Calculer nb_inscrits en temps réel
+        (SELECT COUNT(*) 
+         FROM inscriptions i 
+         WHERE i.vague_id = v.id 
+           AND i.statut_inscription IN ('actif', 'en_attente')
+        ) as nb_inscrits
+      FROM vagues v
+      LEFT JOIN niveaux n ON v.niveau_id = n.id
+      LEFT JOIN salles s ON v.salle_id = s.id
+      LEFT JOIN users u ON v.enseignant_id = u.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+
+    // Filtres
+    if (filters.statut) {
+      query += " AND v.statut = ?";
+      params.push(filters.statut);
+    }
+
+    if (filters.niveau_id) {
+      query += " AND v.niveau_id = ?";
+      params.push(filters.niveau_id);
+    }
+
+    if (filters.enseignant_id) {
+      query += " AND v.enseignant_id = ?";
+      params.push(filters.enseignant_id);
+    }
+
+    if (filters.salle_id) {
+      query += " AND v.salle_id = ?";
+      params.push(filters.salle_id);
+    }
+
+    if (filters.search) {
+      query += " AND v.nom LIKE ?";
+      params.push(`%${filters.search}%`);
+    }
+
+    query += " ORDER BY v.date_debut DESC";
+
+    // Pagination
+    const page = parseInt(filters.page) || 1;
+    const limit = parseInt(filters.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    const [countResult] = await pool.execute(
+      query.replace("SELECT v.*, n.code", "SELECT COUNT(*) as total"),
+      params,
+    );
+
+    query += " LIMIT ? OFFSET ?";
+    params.push(limit, offset);
+
+    const [vagues] = await pool.execute(query, params);
+
+    // Récupérer les horaires pour chaque vague
+    for (const vague of vagues) {
+      const [horaires] = await pool.execute(
+        `SELECT 
+          vh.id,
+          vh.jour_id,
+          vh.horaire_id,
+          j.nom as jour_nom,
+          h.heure_debut,
+          h.heure_fin,
+          h.libelle
+        FROM vagues_horaires vh
+        INNER JOIN jours j ON vh.jour_id = j.id
+        INNER JOIN horaires h ON vh.horaire_id = h.id
+        WHERE vh.vague_id = ?
+        ORDER BY j.ordre, h.heure_debut`,
+        [vague.id],
+      );
+
+      vague.horaires = horaires;
+
+      // Créer un résumé des horaires
+      if (horaires.length > 0) {
+        vague.horaires_resume = horaires
+          .map((h) => `${h.jour_nom} ${h.heure_debut?.substring(0, 5)}`)
+          .join(", ");
+      }
+    }
+
+    return {
+      vagues,
+      pagination: {
+        page,
+        limit,
+        totalItems: countResult[0]?.total || 0,
+        totalPages: Math.ceil((countResult[0]?.total || 0) / limit),
+      },
+    };
+  }
 }
 
 export default VagueModel;

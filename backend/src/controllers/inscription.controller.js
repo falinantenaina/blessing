@@ -4,6 +4,7 @@ import VagueModel from "../models/vague.model.js";
 import {
   asyncHandler,
   errorResponse,
+  paginatedResponse,
   successResponse,
 } from "../utils/response.js";
 
@@ -17,12 +18,12 @@ export const createInscriptionComplete = asyncHandler(async (req, res) => {
     etudiant_email,
     // Vague
     vague_id,
-    // Paiements / options admin
+    // Paiements
     methode_paiement,
+    reference_mvola,
     frais_inscription_paye,
-    montant_ecolage_initial,
-    livre1_paye,
-    livre2_paye,
+    livre_cours_paye,
+    livre_exercices_paye,
     remarques,
   } = req.body;
 
@@ -31,6 +32,15 @@ export const createInscriptionComplete = asyncHandler(async (req, res) => {
     return errorResponse(
       res,
       "Nom, prénom, téléphone et vague sont obligatoires",
+      400,
+    );
+  }
+
+  // Validation pour mvola
+  if (methode_paiement === "mvola" && !reference_mvola) {
+    return errorResponse(
+      res,
+      "La référence MVola est requise pour ce mode de paiement",
       400,
     );
   }
@@ -71,31 +81,20 @@ export const createInscriptionComplete = asyncHandler(async (req, res) => {
     return errorResponse(res, "L'étudiant est déjà inscrit à cette vague", 409);
   }
 
-  // Créer l'inscription complète
+  // Créer l'inscription complète (validée directement par admin)
   const result = await InscriptionModel.createComplete({
     etudiant_id: etudiantId,
     vague_id,
     date_inscription: new Date().toISOString().split("T")[0],
     frais_inscription_paye: frais_inscription_paye || false,
-    montant_ecolage_initial: montant_ecolage_initial || 0,
-    livre1_paye: livre1_paye || false,
-    livre2_paye: livre2_paye || false,
+    livre_cours_paye: livre_cours_paye || false,
+    livre_exercices_paye: livre_exercices_paye || false,
+    methode_paiement: methode_paiement || "especes",
+    reference_mvola: reference_mvola || null,
     remarques: remarques || "Inscription effectuée par l'administration",
+    statut_inscription: "actif", // Validée directement
+    validee_par: req.user.id, // ID de l'admin
   });
-
-  // Ajouter le paiement initial si fourni
-  if (montant_ecolage_initial && montant_ecolage_initial > 0) {
-    await InscriptionModel.addPaiement({
-      inscription_id: result.inscriptionId,
-      type_paiement: "ecolage",
-      montant: montant_ecolage_initial,
-      date_paiement: new Date(),
-      methode_paiement: methode_paiement,
-      reference: "Paiement enregistré par admin",
-      remarques: "Paiement initial par le secrétaire",
-      utilisateur_id: req.user.id, // ID de l'admin
-    });
-  }
 
   // Récupérer les détails complets
   const inscription = await InscriptionModel.findById(result.inscriptionId);
@@ -103,7 +102,7 @@ export const createInscriptionComplete = asyncHandler(async (req, res) => {
   return successResponse(
     res,
     inscription,
-    "Inscription complète créée par l'administration",
+    "Inscription créée et validée avec succès",
     201,
   );
 });
@@ -135,25 +134,87 @@ export const getInscriptionsByEtudiant = asyncHandler(async (req, res) => {
   );
 });
 
+// Obtenir les inscriptions en attente de validation
+export const getPendingInscriptions = asyncHandler(async (req, res) => {
+  const filters = {
+    search: req.query.search,
+    page: req.query.page || 1,
+    limit: req.query.limit || 20,
+  };
+
+  const result = await InscriptionModel.findPendingValidation(filters);
+
+  return paginatedResponse(
+    res,
+    result.inscriptions,
+    result.page,
+    result.limit,
+    result.total,
+    "Inscriptions en attente récupérées",
+  );
+});
+
+// Valider une inscription
+export const validerInscription = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { statut } = req.body; // 'validee' ou 'rejetee'
+
+  if (!statut || !["validee", "rejetee"].includes(statut)) {
+    return errorResponse(res, "Statut invalide (validee ou rejetee)", 400);
+  }
+
+  await InscriptionModel.validerInscription(id, req.user.id, statut);
+
+  const inscription = await InscriptionModel.findById(id);
+
+  return successResponse(
+    res,
+    inscription,
+    statut === "validee"
+      ? "Inscription validée avec succès"
+      : "Inscription rejetée",
+  );
+});
+
 // Ajouter un paiement à une inscription
 export const addPaiement = asyncHandler(async (req, res) => {
   const {
     inscription_id,
     type_paiement,
+    type_livre,
     montant,
     date_paiement,
     methode_paiement,
-    reference,
+    reference_mvola,
     remarques,
   } = req.body;
+
+  // Validation pour mvola
+  if (methode_paiement === "mvola" && !reference_mvola) {
+    return errorResponse(
+      res,
+      "La référence MVola est requise pour ce mode de paiement",
+      400,
+    );
+  }
+
+  // Validation pour livre
+  if (type_paiement === "livre" && !type_livre) {
+    return errorResponse(
+      res,
+      "Le type de livre est requis (cours ou exercices)",
+      400,
+    );
+  }
 
   const paiementId = await InscriptionModel.addPaiement({
     inscription_id,
     type_paiement,
+    type_livre,
     montant,
     date_paiement: date_paiement || new Date().toISOString().split("T")[0],
     methode_paiement,
-    reference,
+    reference_mvola,
     remarques,
     utilisateur_id: req.user.id,
   });
@@ -170,12 +231,20 @@ export const addPaiement = asyncHandler(async (req, res) => {
 
 // Mettre à jour le statut d'un livre
 export const updateLivreStatut = asyncHandler(async (req, res) => {
-  const { inscriptionId, numeroLivre } = req.params;
+  const { inscriptionId, typeLivre } = req.params;
   const { statut_paiement, statut_livraison } = req.body;
+
+  if (!["cours", "exercices"].includes(typeLivre)) {
+    return errorResponse(
+      res,
+      "Type de livre invalide (cours ou exercices)",
+      400,
+    );
+  }
 
   const updated = await InscriptionModel.updateLivreStatut(
     inscriptionId,
-    numeroLivre,
+    typeLivre,
     { statut_paiement, statut_livraison },
   );
 

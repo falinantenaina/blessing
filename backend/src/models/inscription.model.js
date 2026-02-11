@@ -1,7 +1,7 @@
 import { pool } from "../config/database.js";
 
 class InscriptionModel {
-  // Créer une inscription complète (étudiant + inscription + écolage + livres)
+  // Créer une inscription complète (étudiant + inscription + livres)
   static async createComplete(inscriptionData) {
     const connection = await pool.getConnection();
 
@@ -21,9 +21,13 @@ class InscriptionModel {
         remarques = null,
         // Paiement initial
         frais_inscription_paye = false,
-        montant_ecolage_initial = 0,
-        livre1_paye = false,
-        livre2_paye = false,
+        livre_cours_paye = false,
+        livre_exercices_paye = false,
+        methode_paiement = "especes",
+        reference_mvola = null,
+        // Statut (en_attente pour inscription publique, validee pour admin)
+        statut_inscription = "en_attente",
+        validee_par = null,
       } = inscriptionData;
 
       let finalEtudiantId = etudiant_id;
@@ -40,16 +44,23 @@ class InscriptionModel {
 
       // Créer l'inscription
       const [inscriptionResult] = await connection.execute(
-        `INSERT INTO inscriptions (etudiant_id, vague_id, remarques)
-         VALUES (?, ?, ?)`,
-        [finalEtudiantId, vague_id, remarques],
+        `INSERT INTO inscriptions (etudiant_id, vague_id, statut_inscription, frais_inscription_paye, validee_par, remarques)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          finalEtudiantId,
+          vague_id,
+          statut_inscription,
+          frais_inscription_paye,
+          validee_par,
+          remarques,
+        ],
       );
 
       const inscriptionId = inscriptionResult.insertId;
 
-      // Récupérer les frais du niveau
+      // Récupérer les prix des livres du niveau
       const [niveauRows] = await connection.execute(
-        `SELECT n.frais_inscription, n.frais_ecolage, n.frais_livre
+        `SELECT n.frais_inscription, n.prix_livre_cours, n.prix_livre_exercices
          FROM vagues v
          JOIN niveaux n ON v.niveau_id = n.id
          WHERE v.id = ?`,
@@ -60,77 +71,92 @@ class InscriptionModel {
         throw new Error("Vague ou niveau introuvable");
       }
 
-      const { frais_inscription, frais_ecolage, frais_livre } = niveauRows[0];
+      const { frais_inscription, prix_livre_cours, prix_livre_exercices } =
+        niveauRows[0];
 
-      // Calculer montants
-      const montant_total_ecolage =
-        parseInt(frais_inscription) + parseInt(frais_ecolage);
-      const montant_paye_ecolage =
-        (frais_inscription_paye ? parseInt(frais_inscription) : 0) +
-        parseInt(montant_ecolage_initial);
-      const montant_restant = montant_total_ecolage - montant_paye_ecolage;
-
-      let statut_ecolage = "non_paye";
-      if (montant_paye_ecolage >= montant_total_ecolage) {
-        statut_ecolage = "paye";
-      } else if (montant_paye_ecolage > 0) {
-        statut_ecolage = "partiel";
-      }
-
-      // Créer l'écolage
+      // Créer les 2 livres (cours et exercices)
       await connection.execute(
-        `INSERT INTO ecolages (inscription_id, montant_total, montant_paye, montant_restant, frais_inscription_paye, statut)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO livres (inscription_id, type_livre, prix, statut_paiement, statut_livraison)
+         VALUES (?, 'cours', ?, ?, 'non_livre')`,
         [
           inscriptionId,
-          montant_total_ecolage,
-          montant_paye_ecolage,
-          montant_restant,
-          frais_inscription_paye,
-          statut_ecolage,
+          prix_livre_cours,
+          livre_cours_paye ? "paye" : "non_paye",
         ],
       );
 
-      // Créer les 2 livres
-      for (let i = 1; i <= 2; i++) {
-        const livre_paye = i === 1 ? livre1_paye : livre2_paye;
-        await connection.execute(
-          `INSERT INTO livres (inscription_id, numero_livre, prix, statut_paiement, statut_livraison)
-           VALUES (?, ?, ?, ?, 'non_livre')`,
-          [inscriptionId, i, frais_livre, livre_paye ? "paye" : "non_paye"],
-        );
-      }
+      await connection.execute(
+        `INSERT INTO livres (inscription_id, type_livre, prix, statut_paiement, statut_livraison)
+         VALUES (?, 'exercices', ?, ?, 'non_livre')`,
+        [
+          inscriptionId,
+          prix_livre_exercices,
+          livre_exercices_paye ? "paye" : "non_paye",
+        ],
+      );
 
-      // Enregistrer paiements si effectués
+      // Enregistrer les paiements si effectués
+      const dateInscription =
+        date_inscription || new Date().toISOString().split("T")[0];
+
       if (frais_inscription_paye) {
+        // Validation pour mvola
+        if (methode_paiement === "mvola" && !reference_mvola) {
+          throw new Error(
+            "La référence MVola est requise pour ce mode de paiement",
+          );
+        }
+
         await connection.execute(
-          `INSERT INTO paiements (inscription_id, type_paiement, montant, date_paiement, methode_paiement)
-           VALUES (?, 'inscription', ?, ?, 'especes')`,
-          [inscriptionId, frais_inscription, date_inscription],
+          `INSERT INTO paiements (inscription_id, type_paiement, montant, date_paiement, methode_paiement, reference_mvola)
+           VALUES (?, 'inscription', ?, ?, ?, ?)`,
+          [
+            inscriptionId,
+            frais_inscription,
+            dateInscription,
+            methode_paiement,
+            reference_mvola,
+          ],
         );
       }
 
-      if (montant_ecolage_initial > 0) {
+      if (livre_cours_paye) {
+        if (methode_paiement === "mvola" && !reference_mvola) {
+          throw new Error(
+            "La référence MVola est requise pour ce mode de paiement",
+          );
+        }
+
         await connection.execute(
-          `INSERT INTO paiements (inscription_id, type_paiement, montant, date_paiement, methode_paiement)
-           VALUES (?, 'ecolage', ?, ?, 'especes')`,
-          [inscriptionId, montant_ecolage_initial, date_inscription],
+          `INSERT INTO paiements (inscription_id, type_paiement, type_livre, montant, date_paiement, methode_paiement, reference_mvola, remarques)
+           VALUES (?, 'livre', 'cours', ?, ?, ?, ?, 'Livre de cours')`,
+          [
+            inscriptionId,
+            prix_livre_cours,
+            dateInscription,
+            methode_paiement,
+            reference_mvola,
+          ],
         );
       }
 
-      if (livre1_paye) {
-        await connection.execute(
-          `INSERT INTO paiements (inscription_id, type_paiement, montant, date_paiement, methode_paiement, remarques)
-           VALUES (?, 'livre', ?, ?, 'especes', 'Livre 1')`,
-          [inscriptionId, frais_livre, date_inscription],
-        );
-      }
+      if (livre_exercices_paye) {
+        if (methode_paiement === "mvola" && !reference_mvola) {
+          throw new Error(
+            "La référence MVola est requise pour ce mode de paiement",
+          );
+        }
 
-      if (livre2_paye) {
         await connection.execute(
-          `INSERT INTO paiements (inscription_id, type_paiement, montant, date_paiement, methode_paiement, remarques)
-           VALUES (?, 'livre', ?, ?, 'especes', 'Livre 2')`,
-          [inscriptionId, frais_livre, date_inscription],
+          `INSERT INTO paiements (inscription_id, type_paiement, type_livre, montant, date_paiement, methode_paiement, reference_mvola, remarques)
+           VALUES (?, 'livre', 'exercices', ?, ?, ?, ?, 'Livre d\\'exercices')`,
+          [
+            inscriptionId,
+            prix_livre_exercices,
+            dateInscription,
+            methode_paiement,
+            reference_mvola,
+          ],
         );
       }
 
@@ -144,21 +170,58 @@ class InscriptionModel {
     }
   }
 
-  // Trouver une inscription par ID avec détails complets
+  // Valider une inscription (par admin)
+  static async validerInscription(inscriptionId, adminId, statut = "validee") {
+    const connection = await pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      const [result] = await connection.execute(
+        `UPDATE inscriptions 
+         SET statut_inscription = ?,
+             date_validation = NOW(),
+             validee_par = ?
+         WHERE id = ? AND statut_inscription = 'en_attente'`,
+        [statut, adminId, inscriptionId],
+      );
+
+      if (result.affectedRows === 0) {
+        throw new Error("Inscription introuvable ou déjà traitée");
+      }
+
+      // Si validée, changer le statut à 'actif'
+      if (statut === "validee") {
+        await connection.execute(
+          `UPDATE inscriptions SET statut_inscription = 'actif' WHERE id = ?`,
+          [inscriptionId],
+        );
+      }
+
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  // Trouver une inscription par ID avec tous les détails
   static async findById(id) {
     const [rows] = await pool.execute(
       `SELECT i.*,
               e.nom as etudiant_nom, e.prenom as etudiant_prenom, 
               e.email as etudiant_email, e.telephone as etudiant_telephone,
               v.nom as vague_nom, v.date_debut, v.date_fin,
-              n.code as niveau_code, n.nom as niveau_nom,
-              ec.montant_total, ec.montant_paye, ec.montant_restant, 
-              ec.frais_inscription_paye, ec.statut
+              n.code as niveau_code, n.nom as niveau_nom, n.frais_inscription,
+              admin.nom as validee_par_nom, admin.prenom as validee_par_prenom
        FROM inscriptions i
        JOIN etudiants e ON i.etudiant_id = e.id
        JOIN vagues v ON i.vague_id = v.id
        JOIN niveaux n ON v.niveau_id = n.id
-       LEFT JOIN ecolages ec ON i.id = ec.inscription_id
+       LEFT JOIN utilisateurs admin ON i.validee_par = admin.id
        WHERE i.id = ?`,
       [id],
     );
@@ -167,20 +230,94 @@ class InscriptionModel {
 
     // Récupérer les livres
     const [livres] = await pool.execute(
-      "SELECT * FROM livres WHERE inscription_id = ? ORDER BY numero_livre",
+      "SELECT * FROM livres WHERE inscription_id = ? ORDER BY type_livre",
       [id],
     );
 
     // Récupérer les paiements
     const [paiements] = await pool.execute(
-      "SELECT * FROM paiements WHERE inscription_id = ? ORDER BY date_paiement DESC",
+      `SELECT p.*, u.nom as utilisateur_nom, u.prenom as utilisateur_prenom
+       FROM paiements p
+       LEFT JOIN utilisateurs u ON p.utilisateur_id = u.id
+       WHERE p.inscription_id = ? 
+       ORDER BY p.date_paiement DESC`,
       [id],
+    );
+
+    // Calculer les montants
+    const montant_total =
+      parseFloat(rows[0].frais_inscription) +
+      livres.reduce((sum, livre) => sum + parseFloat(livre.prix), 0);
+    const montant_paye = paiements.reduce(
+      (sum, p) => sum + parseFloat(p.montant),
+      0,
     );
 
     return {
       ...rows[0],
       livres,
       paiements,
+      montant_total,
+      montant_paye,
+      montant_restant: montant_total - montant_paye,
+    };
+  }
+
+  // Obtenir les inscriptions en attente de validation
+  static async findPendingValidation(filters = {}) {
+    let query = `
+      SELECT i.*,
+             e.nom as etudiant_nom, e.prenom as etudiant_prenom, 
+             e.telephone as etudiant_telephone,
+             v.nom as vague_nom,
+             n.code as niveau_code, n.frais_inscription
+      FROM inscriptions i
+      JOIN etudiants e ON i.etudiant_id = e.id
+      JOIN vagues v ON i.vague_id = v.id
+      JOIN niveaux n ON v.niveau_id = n.id
+      WHERE i.statut_inscription = 'en_attente'
+    `;
+    const params = [];
+
+    if (filters.search) {
+      query += " AND (e.nom LIKE ? OR e.prenom LIKE ? OR e.telephone LIKE ?)";
+      const searchTerm = `%${filters.search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    // Pagination
+    const page = parseInt(filters.page) || 1;
+    const limit = parseInt(filters.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    query += " ORDER BY i.date_inscription DESC LIMIT ? OFFSET ?";
+    params.push(limit, offset);
+
+    const [rows] = await pool.execute(query, params);
+
+    // Compter le total
+    let countQuery = `
+      SELECT COUNT(*) as total 
+      FROM inscriptions i
+      JOIN etudiants e ON i.etudiant_id = e.id
+      WHERE i.statut_inscription = 'en_attente'
+    `;
+    const countParams = [];
+
+    if (filters.search) {
+      countQuery +=
+        " AND (e.nom LIKE ? OR e.prenom LIKE ? OR e.telephone LIKE ?)";
+      const searchTerm = `%${filters.search}%`;
+      countParams.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    const [countResult] = await pool.execute(countQuery, countParams);
+
+    return {
+      inscriptions: rows,
+      total: countResult[0].total,
+      page,
+      limit,
     };
   }
 
@@ -198,16 +335,14 @@ class InscriptionModel {
     const [rows] = await pool.execute(
       `SELECT i.*,
               v.nom as vague_nom, v.date_debut, v.date_fin, v.statut as vague_statut,
-              n.code as niveau_code, n.nom as niveau_nom,
+              n.code as niveau_code, n.nom as niveau_nom, n.frais_inscription,
               s.nom as salle_nom,
-              ec.montant_total, ec.montant_paye, ec.montant_restant, ec.statut,
               (SELECT COUNT(*) FROM livres WHERE inscription_id = i.id AND statut_paiement = 'paye') as livres_payes,
               (SELECT COUNT(*) FROM livres WHERE inscription_id = i.id AND statut_livraison = 'livre') as livres_livres
        FROM inscriptions i
        JOIN vagues v ON i.vague_id = v.id
        JOIN niveaux n ON v.niveau_id = n.id
        LEFT JOIN salles s ON v.salle_id = s.id
-       LEFT JOIN ecolages ec ON i.id = ec.inscription_id
        WHERE i.etudiant_id = ?
        ORDER BY i.date_inscription DESC`,
       [etudiantId],
@@ -226,63 +361,58 @@ class InscriptionModel {
       const {
         inscription_id,
         type_paiement,
+        type_livre = null,
         montant,
         date_paiement,
         methode_paiement,
-        reference = null,
+        reference_mvola = null,
         remarques = null,
         utilisateur_id = null,
       } = paiementData;
 
+      // Validation pour mvola
+      if (methode_paiement === "mvola" && !reference_mvola) {
+        throw new Error(
+          "La référence MVola est requise pour ce mode de paiement",
+        );
+      }
+
+      // Validation pour livre
+      if (type_paiement === "livre" && !type_livre) {
+        throw new Error(
+          "Le type de livre est requis pour un paiement de livre",
+        );
+      }
+
       // Enregistrer le paiement
       const [paiementResult] = await connection.execute(
-        `INSERT INTO paiements (inscription_id, type_paiement, montant, date_paiement, methode_paiement, reference, remarques, utilisateur_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO paiements (inscription_id, type_paiement, type_livre, montant, date_paiement, methode_paiement, reference_mvola, remarques, utilisateur_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           inscription_id,
           type_paiement,
+          type_livre,
           montant,
           date_paiement,
           methode_paiement,
-          reference,
+          reference_mvola,
           remarques,
           utilisateur_id,
         ],
       );
 
-      // Mettre à jour selon le type
-      if (type_paiement === "inscription" || type_paiement === "ecolage") {
+      // Mettre à jour selon le type de paiement
+      if (type_paiement === "inscription") {
         await connection.execute(
-          `UPDATE ecolages 
-           SET montant_paye = montant_paye + ?,
-               montant_restant = montant_restant - ?
-           WHERE inscription_id = ?`,
-          [montant, montant, inscription_id],
-        );
-
-        if (type_paiement === "inscription") {
-          await connection.execute(
-            "UPDATE ecolages SET frais_inscription_paye = TRUE WHERE inscription_id = ?",
-            [inscription_id],
-          );
-        }
-
-        // Recalculer le statut
-        const [ecolage] = await connection.execute(
-          "SELECT montant_total, montant_paye FROM ecolages WHERE inscription_id = ?",
+          `UPDATE inscriptions SET frais_inscription_paye = TRUE WHERE id = ?`,
           [inscription_id],
         );
-
-        let statut = "non_paye";
-        if (ecolage[0].montant_paye >= ecolage[0].montant_total) {
-          statut = "paye";
-        } else if (ecolage[0].montant_paye > 0) {
-          statut = "partiel";
-        }
-
+      } else if (type_paiement === "livre") {
         await connection.execute(
-          "UPDATE ecolages SET statut = ? WHERE inscription_id = ?",
-          [statut, inscription_id],
+          `UPDATE livres 
+           SET statut_paiement = 'paye', date_paiement = ?
+           WHERE inscription_id = ? AND type_livre = ?`,
+          [date_paiement, inscription_id, type_livre],
         );
       }
 
@@ -297,7 +427,7 @@ class InscriptionModel {
   }
 
   // Mettre à jour le statut d'un livre
-  static async updateLivreStatut(inscriptionId, numeroLivre, statuts) {
+  static async updateLivreStatut(inscriptionId, typeLivre, statuts) {
     const fields = [];
     const values = [];
 
@@ -321,10 +451,10 @@ class InscriptionModel {
 
     if (fields.length === 0) return false;
 
-    values.push(inscriptionId, numeroLivre);
+    values.push(inscriptionId, typeLivre);
 
     const [result] = await pool.execute(
-      `UPDATE livres SET ${fields.join(", ")} WHERE inscription_id = ? AND numero_livre = ?`,
+      `UPDATE livres SET ${fields.join(", ")} WHERE inscription_id = ? AND type_livre = ?`,
       values,
     );
 
@@ -336,8 +466,11 @@ class InscriptionModel {
     let query = `
       SELECT 
         COUNT(*) as total,
-        SUM(CASE WHEN i.statut = 'actif' THEN 1 ELSE 0 END) as actifs,
-        SUM(CASE WHEN i.statut = 'abandonne' THEN 1 ELSE 0 END) as abandonnes
+        SUM(CASE WHEN i.statut_inscription = 'en_attente' THEN 1 ELSE 0 END) as en_attente,
+        SUM(CASE WHEN i.statut_inscription = 'validee' THEN 1 ELSE 0 END) as validees,
+        SUM(CASE WHEN i.statut_inscription = 'actif' THEN 1 ELSE 0 END) as actifs,
+        SUM(CASE WHEN i.statut_inscription = 'rejetee' THEN 1 ELSE 0 END) as rejetees,
+        SUM(CASE WHEN i.statut_inscription = 'abandonne' THEN 1 ELSE 0 END) as abandonnes
       FROM inscriptions i
       WHERE 1=1
     `;

@@ -5,6 +5,14 @@ import Loading from "@/components/ui/Loading";
 import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/Table";
+import {
   horaireService,
   jourService,
   niveauService,
@@ -17,7 +25,15 @@ import {
   getStatusColor,
   getStatusLabel,
 } from "@/utils/helpers";
-import { AlertCircle, Edit, Eye, Plus, Search, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  Edit,
+  Eye,
+  Plus,
+  Search,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -44,6 +60,11 @@ export default function Vagues() {
   const [showDetails, setShowDetails] = useState(false);
   const [selectedVague, setSelectedVague] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  // ✅ NOUVEAU : États pour la liste des étudiants
+  const [showEtudiants, setShowEtudiants] = useState(false);
+  const [etudiantsVague, setEtudiantsVague] = useState([]);
+  const [loadingEtudiants, setLoadingEtudiants] = useState(false);
 
   // Pagination
   const [pagination, setPagination] = useState({
@@ -133,8 +154,6 @@ export default function Vagues() {
 
       setJours(joursRes.data || []);
       setHoraires(horairesRes.data || []);
-
-      console.log(joursRes.data, horairesRes.data);
     } catch (error) {
       console.error("Erreur chargement données:", error);
       toast.error("Erreur lors de la récupération des données");
@@ -147,6 +166,31 @@ export default function Vagues() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // ✅ NOUVEAU : Charger les étudiants d'une vague
+  const loadEtudiantsVague = async (vagueId) => {
+    setLoadingEtudiants(true);
+    try {
+      // Récupérer les détails complets de la vague incluant les inscriptions
+      const response = await vagueService.getById(vagueId);
+      const vagueData = response.data;
+
+      // Si la vague a des inscriptions
+      if (vagueData.inscriptions && Array.isArray(vagueData.inscriptions)) {
+        setEtudiantsVague(vagueData.inscriptions);
+      } else {
+        setEtudiantsVague([]);
+      }
+
+      setShowEtudiants(true);
+    } catch (error) {
+      console.error("Erreur chargement étudiants:", error);
+      toast.error("Erreur lors du chargement des étudiants");
+      setEtudiantsVague([]);
+    } finally {
+      setLoadingEtudiants(false);
+    }
+  };
 
   // Gestion des créneaux horaires - Mode Liste
   const addSlot = () =>
@@ -240,7 +284,7 @@ export default function Vagues() {
       }
 
       closeForm();
-      fetchData();
+      fetchData(); // ✅ Recharger les données pour mettre à jour le remplissage
     } catch (error) {
       console.error("Erreur soumission:", error);
       toast.error(
@@ -334,7 +378,7 @@ export default function Vagues() {
     try {
       await vagueService.delete(vague.id);
       toast.success("Vague supprimée avec succès");
-      fetchData();
+      fetchData(); // ✅ Recharger les données
     } catch (error) {
       console.error("Erreur suppression:", error);
       toast.error(
@@ -419,7 +463,7 @@ export default function Vagues() {
         </div>
       </div>
 
-      {/* Tableau */}
+      {/* Table */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         {tableLoading ? (
           <Loading message="Chargement..." />
@@ -505,30 +549,44 @@ export default function Vagues() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <span className="text-sm font-medium text-gray-900">
-                              {vague.nb_inscrits || 0}
-                            </span>
-                            <span className="text-sm text-gray-500">/</span>
-                            <span className="text-sm text-gray-500">
-                              {vague.capacite_max || "∞"}
-                            </span>
-                          </div>
-                          {vague.capacite_max && (
-                            <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
-                              <div
-                                className="bg-primary-600 h-1.5 rounded-full"
-                                style={{
-                                  width: `${Math.min(
-                                    ((vague.nb_inscrits || 0) /
-                                      vague.capacite_max) *
-                                      100,
-                                    100,
-                                  )}%`,
-                                }}
-                              />
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-900">
+                                {vague.nb_inscrits || 0}
+                              </span>
+                              <span className="text-sm text-gray-500">/</span>
+                              <span className="text-sm text-gray-500">
+                                {vague.capacite_max || "∞"}
+                              </span>
                             </div>
-                          )}
+                            {vague.capacite_max && (
+                              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                <div
+                                  className="bg-primary-600 h-1.5 rounded-full"
+                                  style={{
+                                    width: `${Math.min(
+                                      ((vague.nb_inscrits || 0) /
+                                        vague.capacite_max) *
+                                        100,
+                                      100,
+                                    )}%`,
+                                  }}
+                                />
+                              </div>
+                            )}
+                            {/* ✅ NOUVEAU : Bouton voir étudiants */}
+                            {(vague.nb_inscrits || 0) > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => loadEtudiantsVague(vague.id)}
+                                className="text-xs text-primary-600 hover:text-primary-800"
+                              >
+                                <Users className="w-3 h-3 mr-1" />
+                                Voir étudiants
+                              </Button>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
@@ -623,7 +681,86 @@ export default function Vagues() {
         )}
       </div>
 
-      {/* Modal Formulaire */}
+      {/* ✅ NOUVEAU : Modal Liste des étudiants */}
+      <Modal
+        isOpen={showEtudiants}
+        onClose={() => setShowEtudiants(false)}
+        title="Étudiants inscrits"
+        size="lg"
+      >
+        {loadingEtudiants ? (
+          <Loading message="Chargement des étudiants..." />
+        ) : (
+          <div className="space-y-4">
+            {etudiantsVague.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Users className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p>Aucun étudiant inscrit</p>
+              </div>
+            ) : (
+              <>
+                <div className="text-sm text-gray-600 mb-4">
+                  Total : {etudiantsVague.length} étudiant(s)
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableHead>Nom complet</TableHead>
+                    <TableHead>Téléphone</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead className="text-center">Statut</TableHead>
+                    <TableHead className="text-center">
+                      Frais inscription
+                    </TableHead>
+                  </TableHeader>
+                  <TableBody>
+                    {etudiantsVague.map((inscription) => (
+                      <TableRow key={inscription.id}>
+                        <TableCell className="font-medium">
+                          {inscription.etudiant_prenom}{" "}
+                          {inscription.etudiant_nom}
+                        </TableCell>
+                        <TableCell>{inscription.etudiant_telephone}</TableCell>
+                        <TableCell>
+                          {inscription.etudiant_email || "-"}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant={
+                              inscription.statut_inscription === "actif"
+                                ? "success"
+                                : inscription.statut_inscription ===
+                                    "en_attente"
+                                  ? "warning"
+                                  : "default"
+                            }
+                          >
+                            {inscription.statut_inscription}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant={
+                              inscription.frais_inscription_paye
+                                ? "success"
+                                : "danger"
+                            }
+                          >
+                            {inscription.frais_inscription_paye
+                              ? "Payé"
+                              : "Non payé"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal Formulaire - Reste identique... */}
       <Modal
         isOpen={showForm}
         onClose={closeForm}
@@ -841,7 +978,7 @@ export default function Vagues() {
         </form>
       </Modal>
 
-      {/* Modal Détails */}
+      {/* Modal Détails - Reste identique... */}
       <Modal
         isOpen={showDetails}
         onClose={() => setShowDetails(false)}

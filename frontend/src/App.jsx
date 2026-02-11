@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import EtudiantsPage from "./pages/Etudiants";
 import Horaires from "./pages/Horaires";
 import Inscriptions from "./pages/Inscription";
+import InscriptionsEnAttente from "./pages/Inscriptionsenattente";
 import Login from "./pages/Login";
 import Niveaux from "./pages/Niveaux";
 import Planning from "./pages/Planning";
@@ -17,6 +18,35 @@ import { useAuthStore } from "./store";
 
 function App() {
   const { isAuthenticated } = useAuthStore();
+
+  /*   const router = createBrowserRouter([
+    {
+      path: "/inscription-etudiant",
+      element: <InscriptionEtudiant />,
+    },
+    {
+      path: "/login",
+      element: <Login />,
+    },
+    {
+      path: "/admin",
+      elemment: (
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      ),
+      children: [
+        {
+          path: "",
+          element: <Dashboard />,
+        },
+        {
+          path: "users",
+          element: ,
+        },
+      ],
+    },
+  ]); */
 
   return (
     <BrowserRouter>
@@ -101,6 +131,14 @@ function App() {
             element={
               <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
                 <Salles />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inscriptions-en-attente"
+            element={
+              <ProtectedRoute roles={["admin", "secretaire"]}>
+                <InscriptionsEnAttente />
               </ProtectedRoute>
             }
           />

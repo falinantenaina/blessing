@@ -34,6 +34,12 @@ export default function Sidebar({ onLogout }) {
       roles: ["admin", "secretaire"],
     },
     {
+      name: "En attente",
+      href: "/inscriptions-en-attente",
+      icon: Clock10,
+      roles: ["admin", "secretaire"],
+    },
+    {
       name: "Utilisateurs",
       href: "/users",
       icon: Users,

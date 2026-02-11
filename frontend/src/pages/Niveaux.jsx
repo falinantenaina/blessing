@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
-import { Plus, Edit, Trash2, Save } from "lucide-react";
-import { niveauService } from "@/services/api";
+import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import Modal from "@/components/ui/Modal";
-import Badge from "@/components/ui/Badge";
 import Loading from "@/components/ui/Loading";
+import Modal from "@/components/ui/Modal";
+import { niveauService } from "@/services/api";
 import { formatCurrency } from "@/utils/helpers";
+import { Edit, Plus, Save, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 export default function Niveaux() {
@@ -21,8 +21,8 @@ export default function Niveaux() {
     nom: "",
     description: "",
     frais_inscription: "",
-    frais_ecolage: "",
-    frais_livre: "",
+    prix_livre_cours: "", // ✅ Nouveau
+    prix_livre_exercices: "", // ✅ Nouveau
     duree_mois: "2",
   });
 
@@ -63,15 +63,19 @@ export default function Niveaux() {
       newErrors.frais_inscription = "Montant invalide";
     }
 
+    // ✅ Validation nouveaux champs
     if (
-      formData.frais_ecolage === "" ||
-      parseFloat(formData.frais_ecolage) < 0
+      formData.prix_livre_cours === "" ||
+      parseFloat(formData.prix_livre_cours) < 0
     ) {
-      newErrors.frais_ecolage = "Montant invalide";
+      newErrors.prix_livre_cours = "Montant invalide";
     }
 
-    if (formData.frais_livre === "" || parseFloat(formData.frais_livre) < 0) {
-      newErrors.frais_livre = "Montant invalide";
+    if (
+      formData.prix_livre_exercices === "" ||
+      parseFloat(formData.prix_livre_exercices) < 0
+    ) {
+      newErrors.prix_livre_exercices = "Montant invalide";
     }
 
     if (!formData.duree_mois || parseInt(formData.duree_mois) < 1) {
@@ -97,8 +101,8 @@ export default function Niveaux() {
       nom: formData.nom.trim(),
       description: formData.description.trim() || null,
       frais_inscription: parseFloat(formData.frais_inscription),
-      frais_ecolage: parseFloat(formData.frais_ecolage),
-      frais_livre: parseFloat(formData.frais_livre),
+      prix_livre_cours: parseFloat(formData.prix_livre_cours),
+      prix_livre_exercices: parseFloat(formData.prix_livre_exercices),
       duree_mois: parseInt(formData.duree_mois),
     };
 
@@ -153,8 +157,8 @@ export default function Niveaux() {
         nom: niveau.nom,
         description: niveau.description || "",
         frais_inscription: niveau.frais_inscription?.toString() || "0",
-        frais_ecolage: niveau.frais_ecolage?.toString() || "0",
-        frais_livre: niveau.frais_livre?.toString() || "0",
+        prix_livre_cours: niveau.prix_livre_cours?.toString() || "0",
+        prix_livre_exercices: niveau.prix_livre_exercices?.toString() || "0",
         duree_mois: niveau.duree_mois?.toString() || "2",
       });
     } else {
@@ -171,8 +175,8 @@ export default function Niveaux() {
       nom: "",
       description: "",
       frais_inscription: "",
-      frais_ecolage: "",
-      frais_livre: "",
+      prix_livre_cours: "",
+      prix_livre_exercices: "",
       duree_mois: "2",
     });
   };
@@ -215,10 +219,10 @@ export default function Niveaux() {
                   Frais inscription
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Frais écolage
+                  Livre cours
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Frais livre
+                  Livre exercices
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total
@@ -248,8 +252,8 @@ export default function Niveaux() {
                 niveaux.map((niveau) => {
                   const totalFrais =
                     (parseFloat(niveau.frais_inscription) || 0) +
-                    (parseFloat(niveau.frais_ecolage) || 0) +
-                    (parseFloat(niveau.frais_livre) || 0);
+                    (parseFloat(niveau.prix_livre_cours) || 0) +
+                    (parseFloat(niveau.prix_livre_exercices) || 0);
 
                   return (
                     <tr
@@ -277,13 +281,13 @@ export default function Niveaux() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <span className="text-sm font-medium text-gray-900">
-                          {formatCurrency(niveau.frais_ecolage)}
+                        <span className="text-sm font-medium text-green-600">
+                          {formatCurrency(niveau.prix_livre_cours)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <span className="text-sm font-medium text-gray-900">
-                          {formatCurrency(niveau.frais_livre)}
+                        <span className="text-sm font-medium text-blue-600">
+                          {formatCurrency(niveau.prix_livre_exercices)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
@@ -347,7 +351,7 @@ export default function Niveaux() {
                 setFormData({ ...formData, code: e.target.value.toUpperCase() })
               }
               error={errors.code}
-              placeholder="Ex: L1, L2, M1, etc."
+              placeholder="Ex: A1, A2, B1, etc."
               required
               maxLength={10}
             />
@@ -358,7 +362,7 @@ export default function Niveaux() {
                 setFormData({ ...formData, nom: e.target.value })
               }
               error={errors.nom}
-              placeholder="Ex: Licence 1"
+              placeholder="Ex: Niveau A1"
               required
             />
           </div>
@@ -372,9 +376,13 @@ export default function Niveaux() {
             placeholder="Optionnel : détails sur le niveau"
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-gray-700">
+              Tarification
+            </h3>
+
             <Input
-              label="Frais inscription *"
+              label="Frais d'inscription *"
               type="number"
               step="0.01"
               min="0"
@@ -389,38 +397,42 @@ export default function Niveaux() {
               placeholder="0.00"
               required
             />
-            <Input
-              label="Frais écolage *"
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.frais_ecolage}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  frais_ecolage: e.target.value,
-                })
-              }
-              error={errors.frais_ecolage}
-              placeholder="0.00"
-              required
-            />
-            <Input
-              label="Frais livres *"
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.frais_livre}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  frais_livre: e.target.value,
-                })
-              }
-              error={errors.frais_livre}
-              placeholder="0.00"
-              required
-            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Prix livre de cours *"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.prix_livre_cours}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    prix_livre_cours: e.target.value,
+                  })
+                }
+                error={errors.prix_livre_cours}
+                placeholder="0.00"
+                required
+              />
+
+              <Input
+                label="Prix livre d'exercices *"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.prix_livre_exercices}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    prix_livre_exercices: e.target.value,
+                  })
+                }
+                error={errors.prix_livre_exercices}
+                placeholder="0.00"
+                required
+              />
+            </div>
           </div>
 
           <Input
@@ -438,20 +450,44 @@ export default function Niveaux() {
 
           {/* Résumé du total */}
           {(formData.frais_inscription ||
-            formData.frais_ecolage ||
-            formData.frais_livre) && (
+            formData.prix_livre_cours ||
+            formData.prix_livre_exercices) && (
             <div className="p-4 bg-primary-50 rounded-lg border border-primary-200">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">
-                  Total des frais :
-                </span>
-                <span className="text-2xl font-bold text-primary-600">
-                  {formatCurrency(
-                    (parseFloat(formData.frais_inscription) || 0) +
-                      (parseFloat(formData.frais_ecolage) || 0) +
-                      (parseFloat(formData.frais_livre) || 0),
-                  )}
-                </span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-700">Frais d'inscription :</span>
+                  <span className="font-medium text-gray-900">
+                    {formatCurrency(
+                      parseFloat(formData.frais_inscription) || 0,
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-700">Livre de cours :</span>
+                  <span className="font-medium text-green-600">
+                    {formatCurrency(parseFloat(formData.prix_livre_cours) || 0)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-700">Livre d'exercices :</span>
+                  <span className="font-medium text-blue-600">
+                    {formatCurrency(
+                      parseFloat(formData.prix_livre_exercices) || 0,
+                    )}
+                  </span>
+                </div>
+                <div className="pt-2 border-t border-primary-300 flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">
+                    Total des frais :
+                  </span>
+                  <span className="text-2xl font-bold text-primary-600">
+                    {formatCurrency(
+                      (parseFloat(formData.frais_inscription) || 0) +
+                        (parseFloat(formData.prix_livre_cours) || 0) +
+                        (parseFloat(formData.prix_livre_exercices) || 0),
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
           )}
