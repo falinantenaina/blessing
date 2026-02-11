@@ -107,7 +107,7 @@ export const vagueService = {
    * ✅ NOUVEAU : Récupérer les inscriptions d'une vague
    */
   getInscriptions: async (id) => {
-    const response = await axios.get(`/vagues/${id}/inscriptions`);
+    const response = await axios.get(`/vagues/${id}/etudiants`);
     return response.data;
   },
 
@@ -561,13 +561,19 @@ export const referenceService = {
 };
 
 export const etudiantService = {
-  // ✅ Liste paginée
+  // ✅ Liste paginée basique
   async getAll(params = {}) {
     const response = await axios.get("/etudiants", { params });
     return response.data;
   },
 
-  // ✅ Détails
+  // ✅ Liste détaillée avec paiements, livres, inscriptions
+  async getWithDetails(params = {}) {
+    const response = await axios.get("/etudiants/details", { params });
+    return response.data;
+  },
+
+  // ✅ Détails d'un étudiant
   async getById(id) {
     const response = await axios.get(`/etudiants/${id}`);
     return response.data;
@@ -587,6 +593,12 @@ export const etudiantService = {
 
   // ✅ Désactiver (delete logique)
   async deactivate(id) {
+    const response = await axios.delete(`/etudiants/${id}`);
+    return response.data;
+  },
+
+  // ✅ Alias delete pour compatibilité Etudiants.jsx
+  async delete(id) {
     const response = await axios.delete(`/etudiants/${id}`);
     return response.data;
   },

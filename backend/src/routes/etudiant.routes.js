@@ -5,6 +5,7 @@ import {
   getEtudiantById,
   getEtudiants,
   getEtudiantStats,
+  getEtudiantsWithDetails,
   toggleEtudiantActive,
   updateEtudiant,
 } from "../controllers/etudiant.controller.js";
@@ -21,6 +22,8 @@ router.use(authenticate);
 // Routes protégées (admin/secrétaire uniquement)
 router.get("/", isAdminOrSecretaire, getEtudiants);
 router.get("/stats", isAdminOrSecretaire, getEtudiantStats);
+router.get("/details", isAdminOrSecretaire, getEtudiantsWithDetails);
+
 router.get("/:id", isAdminOrSecretaire, getEtudiantById);
 router.post("/", isAdminOrSecretaire, createEtudiant);
 router.put("/:id", isAdminOrSecretaire, updateEtudiant);

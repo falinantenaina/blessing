@@ -21,12 +21,16 @@ import {
   vagueService,
 } from "@/services/api";
 import {
+  formatCurrency,
   formatShortDate,
   getStatusColor,
   getStatusLabel,
 } from "@/utils/helpers";
 import {
   AlertCircle,
+  Book,
+  BookOpen,
+  DollarSign,
   Edit,
   Eye,
   Plus,
@@ -61,10 +65,14 @@ export default function Vagues() {
   const [selectedVague, setSelectedVague] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  // ✅ NOUVEAU : États pour la liste des étudiants
+  // États pour la liste des étudiants
   const [showEtudiants, setShowEtudiants] = useState(false);
   const [etudiantsVague, setEtudiantsVague] = useState([]);
   const [loadingEtudiants, setLoadingEtudiants] = useState(false);
+  const [vagueEtudiantsNom, setVagueEtudiantsNom] = useState("");
+  // Filtres dans la modale étudiants
+  const [filtreStatut, setFiltreStatut] = useState("");
+  const [filtreSearch, setFiltreSearch] = useState("");
 
   // Pagination
   const [pagination, setPagination] = useState({
@@ -94,7 +102,6 @@ export default function Vagues() {
     statut: "planifie",
   });
 
-  // Créneaux horaires en mode liste
   const [selectedSlots, setSelectedSlots] = useState([
     { jour_id: "", horaire_id: "" },
   ]);
@@ -126,10 +133,8 @@ export default function Vagues() {
         horaireService.getAll({ actif: true }),
       ]);
 
-      // Gestion de la réponse paginée
       if (vaguesRes.data) {
         if (vaguesRes.data.vagues) {
-          // Réponse paginée
           setVagues(vaguesRes.data.vagues || []);
           setPagination((prev) => ({
             ...prev,
@@ -137,10 +142,8 @@ export default function Vagues() {
             totalPages: vaguesRes.data.pagination?.totalPages || 0,
           }));
         } else if (vaguesRes.data.liste) {
-          // Réponse simple avec liste
           setVagues(vaguesRes.data.liste || []);
         } else if (Array.isArray(vaguesRes.data)) {
-          // Réponse directe en tableau
           setVagues(vaguesRes.data);
         }
       }
@@ -148,7 +151,6 @@ export default function Vagues() {
       setNiveaux(niveauxRes.data || []);
       setSalles(sallesRes.data || []);
 
-      // Extraction des utilisateurs selon la structure de réponse
       const usersData = enseignantsRes.data?.users || enseignantsRes.data || [];
       setEnseignants(usersData);
 
@@ -167,21 +169,21 @@ export default function Vagues() {
     fetchData();
   }, [fetchData]);
 
-  // ✅ NOUVEAU : Charger les étudiants d'une vague
-  const loadEtudiantsVague = async (vagueId) => {
+  // ✅ CORRIGÉ : Charger les étudiants via /vagues/:id/inscriptions
+  const loadEtudiantsVague = async (vague) => {
     setLoadingEtudiants(true);
+    setVagueEtudiantsNom(vague.nom);
+    setFiltreStatut("");
+    setFiltreSearch("");
     try {
-      // Récupérer les détails complets de la vague incluant les inscriptions
-      const response = await vagueService.getById(vagueId);
-      const vagueData = response.data;
-
-      // Si la vague a des inscriptions
-      if (vagueData.inscriptions && Array.isArray(vagueData.inscriptions)) {
-        setEtudiantsVague(vagueData.inscriptions);
-      } else {
-        setEtudiantsVague([]);
-      }
-
+      const response = await vagueService.getInscriptions(vague.id);
+      // Le backend renvoie { data: { etudiants: [...], pagination: {...} } }
+      const data = response.data;
+      const liste =
+        data?.etudiants ||
+        data?.inscriptions ||
+        (Array.isArray(data) ? data : []);
+      setEtudiantsVague(liste);
       setShowEtudiants(true);
     } catch (error) {
       console.error("Erreur chargement étudiants:", error);
@@ -192,7 +194,18 @@ export default function Vagues() {
     }
   };
 
-  // Gestion des créneaux horaires - Mode Liste
+  // Filtrer les étudiants localement (recherche + statut)
+  const etudiantsFiltres = etudiantsVague.filter((e) => {
+    const matchStatut = !filtreStatut || e.statut_inscription === filtreStatut;
+    const search = filtreSearch.toLowerCase();
+    const matchSearch =
+      !search ||
+      `${e.etudiant_prenom} ${e.etudiant_nom}`.toLowerCase().includes(search) ||
+      (e.etudiant_telephone || "").includes(search);
+    return matchStatut && matchSearch;
+  });
+
+  // Gestion des créneaux horaires
   const addSlot = () =>
     setSelectedSlots([...selectedSlots, { jour_id: "", horaire_id: "" }]);
 
@@ -208,55 +221,36 @@ export default function Vagues() {
     setSelectedSlots(newSlots);
   };
 
-  // Récupère les slots valides
   const getValidSlots = () => {
     return selectedSlots.filter((s) => s.jour_id && s.horaire_id);
   };
 
-  // Validation du formulaire
   const validateForm = () => {
     const errors = {};
-
-    if (!formData.nom.trim()) {
-      errors.nom = "Le nom est requis";
-    }
-
-    if (!formData.niveau_id) {
-      errors.niveau_id = "Le niveau est requis";
-    }
-
-    if (!formData.date_debut) {
+    if (!formData.nom.trim()) errors.nom = "Le nom est requis";
+    if (!formData.niveau_id) errors.niveau_id = "Le niveau est requis";
+    if (!formData.date_debut)
       errors.date_debut = "La date de début est requise";
-    }
-
-    if (!formData.date_fin) {
-      errors.date_fin = "La date de fin est requise";
-    }
-
+    if (!formData.date_fin) errors.date_fin = "La date de fin est requise";
     if (formData.date_debut && formData.date_fin) {
       if (new Date(formData.date_fin) <= new Date(formData.date_debut)) {
         errors.date_fin = "La date de fin doit être après la date de début";
       }
     }
-
     const validSlots = getValidSlots();
     if (validSlots.length === 0) {
       errors.horaires = "Sélectionnez au moins un créneau horaire";
     }
-
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  // Soumission du formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!validateForm()) {
       toast.error("Veuillez corriger les erreurs du formulaire");
       return;
     }
-
     const validSlots = getValidSlots();
     const payload = {
       nom: formData.nom.trim(),
@@ -273,7 +267,6 @@ export default function Vagues() {
         horaire_id: parseInt(slot.horaire_id),
       })),
     };
-
     try {
       if (isEditing && selectedVague) {
         await vagueService.update(selectedVague.id, payload);
@@ -282,9 +275,8 @@ export default function Vagues() {
         await vagueService.create(payload);
         toast.success("Vague créée avec succès");
       }
-
       closeForm();
-      fetchData(); // ✅ Recharger les données pour mettre à jour le remplissage
+      fetchData();
     } catch (error) {
       console.error("Erreur soumission:", error);
       toast.error(
@@ -293,7 +285,6 @@ export default function Vagues() {
     }
   };
 
-  // Ouverture du formulaire
   const openForm = (vague = null) => {
     if (vague) {
       setIsEditing(true);
@@ -307,8 +298,6 @@ export default function Vagues() {
         date_fin: vague.date_fin,
         statut: vague.statut || "planifie",
       });
-
-      // Charger les horaires de la vague
       if (
         vague.horaires &&
         Array.isArray(vague.horaires) &&
@@ -337,12 +326,10 @@ export default function Vagues() {
       });
       setSelectedSlots([{ jour_id: "", horaire_id: "" }]);
     }
-
     setFormErrors({});
     setShowForm(true);
   };
 
-  // Fermeture du formulaire
   const closeForm = () => {
     setShowForm(false);
     setIsEditing(false);
@@ -360,25 +347,21 @@ export default function Vagues() {
     setFormErrors({});
   };
 
-  // Suppression
   const handleDelete = async (vague) => {
     if (vague.nb_inscrits > 0) {
       toast.error("Impossible de supprimer une vague avec des inscriptions");
       return;
     }
-
     if (
       !window.confirm(
         `Voulez-vous vraiment supprimer la vague "${vague.nom}" ?`,
       )
-    ) {
+    )
       return;
-    }
-
     try {
       await vagueService.delete(vague.id);
       toast.success("Vague supprimée avec succès");
-      fetchData(); // ✅ Recharger les données
+      fetchData();
     } catch (error) {
       console.error("Erreur suppression:", error);
       toast.error(
@@ -387,7 +370,6 @@ export default function Vagues() {
     }
   };
 
-  // Affichage des détails
   const viewDetails = async (vague) => {
     try {
       const response = await vagueService.getById(vague.id);
@@ -399,7 +381,6 @@ export default function Vagues() {
     }
   };
 
-  // Changement de page
   const handlePageChange = (newPage) => {
     setPagination((prev) => ({ ...prev, page: newPage }));
   };
@@ -426,14 +407,12 @@ export default function Vagues() {
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
             icon={<Search className="w-4 h-4" />}
           />
-
           <Select
             placeholder="Statut"
             value={filters.statut}
             onChange={(e) => setFilters({ ...filters, statut: e.target.value })}
             options={STATUS_OPTIONS}
           />
-
           <Select
             placeholder="Niveau"
             value={filters.niveau_id}
@@ -445,7 +424,6 @@ export default function Vagues() {
               ...niveaux.map((n) => ({ value: n.id.toString(), label: n.nom })),
             ]}
           />
-
           <Select
             placeholder="Enseignant"
             value={filters.enseignant_id}
@@ -564,22 +542,17 @@ export default function Vagues() {
                                 <div
                                   className="bg-primary-600 h-1.5 rounded-full"
                                   style={{
-                                    width: `${Math.min(
-                                      ((vague.nb_inscrits || 0) /
-                                        vague.capacite_max) *
-                                        100,
-                                      100,
-                                    )}%`,
+                                    width: `${Math.min(((vague.nb_inscrits || 0) / vague.capacite_max) * 100, 100)}%`,
                                   }}
                                 />
                               </div>
                             )}
-                            {/* ✅ NOUVEAU : Bouton voir étudiants */}
+                            {/* ✅ Bouton voir étudiants */}
                             {(vague.nb_inscrits || 0) > 0 && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => loadEtudiantsVague(vague.id)}
+                                onClick={() => loadEtudiantsVague(vague)}
                                 className="text-xs text-primary-600 hover:text-primary-800"
                               >
                                 <Users className="w-3 h-3 mr-1" />
@@ -681,86 +654,249 @@ export default function Vagues() {
         )}
       </div>
 
-      {/* ✅ NOUVEAU : Modal Liste des étudiants */}
+      {/* ✅ Modal Liste des étudiants — enrichie */}
       <Modal
         isOpen={showEtudiants}
         onClose={() => setShowEtudiants(false)}
-        title="Étudiants inscrits"
-        size="lg"
+        title={`Étudiants inscrits — ${vagueEtudiantsNom}`}
+        size="xl"
       >
         {loadingEtudiants ? (
           <Loading message="Chargement des étudiants..." />
         ) : (
           <div className="space-y-4">
-            {etudiantsVague.length === 0 ? (
+            {/* Filtres dans la modale */}
+            <div className="flex gap-3 flex-wrap">
+              <input
+                type="text"
+                placeholder="Rechercher un étudiant..."
+                value={filtreSearch}
+                onChange={(e) => setFiltreSearch(e.target.value)}
+                className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <select
+                value={filtreStatut}
+                onChange={(e) => setFiltreStatut(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+              >
+                <option value="">Tous les statuts</option>
+                <option value="actif">Actif</option>
+                <option value="validee">Validé</option>
+                <option value="en_attente">En attente</option>
+              </select>
+            </div>
+
+            {etudiantsFiltres.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <Users className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p>Aucun étudiant inscrit</p>
+                <p>
+                  {etudiantsVague.length === 0
+                    ? "Aucun étudiant inscrit"
+                    : "Aucun résultat pour ces filtres"}
+                </p>
               </div>
             ) : (
               <>
-                <div className="text-sm text-gray-600 mb-4">
-                  Total : {etudiantsVague.length} étudiant(s)
+                <div className="text-sm text-gray-600">
+                  {etudiantsFiltres.length} étudiant(s) affiché(s) sur{" "}
+                  {etudiantsVague.length}
                 </div>
-                <Table>
-                  <TableHeader>
-                    <TableHead>Nom complet</TableHead>
-                    <TableHead>Téléphone</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="text-center">Statut</TableHead>
-                    <TableHead className="text-center">
-                      Frais inscription
-                    </TableHead>
-                  </TableHeader>
-                  <TableBody>
-                    {etudiantsVague.map((inscription) => (
-                      <TableRow key={inscription.id}>
-                        <TableCell className="font-medium">
-                          {inscription.etudiant_prenom}{" "}
-                          {inscription.etudiant_nom}
-                        </TableCell>
-                        <TableCell>{inscription.etudiant_telephone}</TableCell>
-                        <TableCell>
-                          {inscription.etudiant_email || "-"}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            variant={
-                              inscription.statut_inscription === "actif"
-                                ? "success"
-                                : inscription.statut_inscription ===
-                                    "en_attente"
-                                  ? "warning"
-                                  : "default"
-                            }
-                          >
-                            {inscription.statut_inscription}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            variant={
-                              inscription.frais_inscription_paye
-                                ? "success"
-                                : "danger"
-                            }
-                          >
-                            {inscription.frais_inscription_paye
-                              ? "Payé"
-                              : "Non payé"}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+
+                {/* Résumé financier */}
+                {etudiantsVague.length > 0 && (
+                  <div className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500">Total attendu</p>
+                      <p className="text-sm font-bold text-gray-900">
+                        {formatCurrency(
+                          etudiantsVague.reduce(
+                            (s, e) => s + (parseFloat(e.montant_total) || 0),
+                            0,
+                          ),
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500">Total payé</p>
+                      <p className="text-sm font-bold text-green-600">
+                        {formatCurrency(
+                          etudiantsVague.reduce(
+                            (s, e) => s + (parseFloat(e.montant_paye) || 0),
+                            0,
+                          ),
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500">Reste à payer</p>
+                      <p className="text-sm font-bold text-red-600">
+                        {formatCurrency(
+                          etudiantsVague.reduce(
+                            (s, e) => s + (parseFloat(e.montant_restant) || 0),
+                            0,
+                          ),
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableHead>Étudiant</TableHead>
+                      <TableHead>Téléphone</TableHead>
+                      <TableHead className="text-center">
+                        Statut inscription
+                      </TableHead>
+                      <TableHead className="text-center">
+                        Frais inscr.
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Book className="w-3 h-3" /> Cours
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <BookOpen className="w-3 h-3" /> Exercices
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <DollarSign className="w-3 h-3" /> Payé / Total
+                        </div>
+                      </TableHead>
+                    </TableHeader>
+                    <TableBody>
+                      {etudiantsFiltres.map((etudiant) => (
+                        <TableRow key={etudiant.inscription_id || etudiant.id}>
+                          <TableCell className="font-medium">
+                            {etudiant.prenom} {etudiant.nom}
+                            {etudiant.email && (
+                              <div className="text-xs text-gray-500">
+                                {etudiant.etudiant_email}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {etudiant.telephone || "-"}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge
+                              variant={
+                                etudiant.statut_inscription === "actif" ||
+                                etudiant.statut_inscription === "validee"
+                                  ? "success"
+                                  : etudiant.statut_inscription === "en_attente"
+                                    ? "warning"
+                                    : "default"
+                              }
+                            >
+                              {etudiant.statut_inscription === "validee"
+                                ? "Validé"
+                                : etudiant.statut_inscription === "actif"
+                                  ? "Actif"
+                                  : etudiant.statut_inscription === "en_attente"
+                                    ? "En attente"
+                                    : etudiant.statut_inscription || "-"}
+                            </Badge>
+                          </TableCell>
+                          {/* Frais d'inscription */}
+                          <TableCell className="text-center">
+                            <Badge
+                              variant={
+                                etudiant.frais_inscription_paye
+                                  ? "success"
+                                  : "danger"
+                              }
+                            >
+                              {etudiant.frais_inscription_paye
+                                ? "Payé"
+                                : "Non payé"}
+                            </Badge>
+                          </TableCell>
+                          {/* Livre de cours */}
+                          <TableCell className="text-center">
+                            {etudiant.livre_cours_paye !== undefined ? (
+                              <div className="flex flex-col items-center gap-0.5">
+                                <Badge
+                                  variant={
+                                    etudiant.livre_cours_paye === "paye"
+                                      ? "success"
+                                      : "danger"
+                                  }
+                                >
+                                  {etudiant.livre_cours_paye === "paye"
+                                    ? "Payé"
+                                    : "Non payé"}
+                                </Badge>
+                                {etudiant.livre_cours_livre !== undefined && (
+                                  <span className="text-xs text-gray-500">
+                                    {etudiant.livre_cours_livre === "livre"
+                                      ? "Livré ✓"
+                                      : "Non livré"}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                          </TableCell>
+                          {/* Livre d'exercices */}
+                          <TableCell className="text-center">
+                            {etudiant.livre_exercices_paye !== undefined ? (
+                              <div className="flex flex-col items-center gap-0.5">
+                                <Badge
+                                  variant={
+                                    etudiant.livre_exercices_paye === "paye"
+                                      ? "success"
+                                      : "danger"
+                                  }
+                                >
+                                  {etudiant.livre_exercices_paye === "paye"
+                                    ? "Payé"
+                                    : "Non payé"}
+                                </Badge>
+                                {etudiant.livre_exercices_livre !==
+                                  undefined && (
+                                  <span className="text-xs text-gray-500">
+                                    {etudiant.livre_exercices_livre === "livre"
+                                      ? "Livré ✓"
+                                      : "Non livré"}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">-</span>
+                            )}
+                          </TableCell>
+                          {/* Montants */}
+                          <TableCell className="text-right">
+                            <div className="text-sm font-medium text-green-600">
+                              {formatCurrency(etudiant.montant_paye || 0)}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              / {formatCurrency(etudiant.montant_total || 0)}
+                            </div>
+                            {(etudiant.montant_restant || 0) > 0 && (
+                              <div className="text-xs text-red-500">
+                                reste {formatCurrency(etudiant.montant_restant)}
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </>
             )}
           </div>
         )}
       </Modal>
 
-      {/* Modal Formulaire - Reste identique... */}
+      {/* Modal Formulaire */}
       <Modal
         isOpen={showForm}
         onClose={closeForm}
@@ -768,12 +904,10 @@ export default function Vagues() {
         size="xl"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Informations générales */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900">
               Informations générales
             </h3>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Nom de la vague"
@@ -785,7 +919,6 @@ export default function Vagues() {
                 placeholder="Ex: Vague L1 - Janvier 2026"
                 required
               />
-
               <Select
                 label="Niveau"
                 value={formData.niveau_id}
@@ -801,7 +934,6 @@ export default function Vagues() {
                 required
               />
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Select
                 label="Salle"
@@ -818,7 +950,6 @@ export default function Vagues() {
                 ]}
                 placeholder="Sélectionner une salle"
               />
-
               <Select
                 label="Enseignant"
                 value={formData.enseignant_id}
@@ -835,7 +966,6 @@ export default function Vagues() {
                 placeholder="Sélectionner un enseignant"
               />
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input
                 label="Date de début"
@@ -847,7 +977,6 @@ export default function Vagues() {
                 error={formErrors.date_debut}
                 required
               />
-
               <Input
                 label="Date de fin"
                 type="date"
@@ -858,7 +987,6 @@ export default function Vagues() {
                 error={formErrors.date_fin}
                 required
               />
-
               <Select
                 label="Statut"
                 value={formData.statut}
@@ -871,7 +999,6 @@ export default function Vagues() {
             </div>
           </div>
 
-          {/* Emploi du temps - Mode Liste uniquement */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">
@@ -883,11 +1010,9 @@ export default function Vagues() {
                 </span>
               )}
             </div>
-
             <p className="text-sm text-gray-600">
               Ajoutez les créneaux horaires un par un
             </p>
-
             <div className="border rounded-lg p-4 bg-gray-50">
               <div className="space-y-3">
                 {selectedSlots.map((slot, index) => (
@@ -909,11 +1034,6 @@ export default function Vagues() {
                             label: j.nom,
                           })),
                         ]}
-                        error={
-                          !slot.jour_id && formErrors.horaires
-                            ? "Jour requis"
-                            : undefined
-                        }
                         required
                       />
                     </div>
@@ -931,11 +1051,6 @@ export default function Vagues() {
                             label: `${h.heure_debut?.substring(0, 5)} - ${h.heure_fin?.substring(0, 5)} ${h.libelle ? `(${h.libelle})` : ""}`,
                           })),
                         ]}
-                        error={
-                          !slot.horaire_id && formErrors.horaires
-                            ? "Horaire requis"
-                            : undefined
-                        }
                         required
                       />
                     </div>
@@ -960,13 +1075,11 @@ export default function Vagues() {
                 </Button>
               </div>
             </div>
-
             <div className="text-sm text-gray-600">
               {getValidSlots().length} créneau(x) configuré(s)
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex justify-end gap-3 pt-6 border-t">
             <Button type="button" variant="outline" onClick={closeForm}>
               Annuler
@@ -978,7 +1091,7 @@ export default function Vagues() {
         </form>
       </Modal>
 
-      {/* Modal Détails - Reste identique... */}
+      {/* Modal Détails */}
       <Modal
         isOpen={showDetails}
         onClose={() => setShowDetails(false)}
@@ -1032,7 +1145,6 @@ export default function Vagues() {
                 </Badge>
               </div>
             </div>
-
             {selectedVague.horaires && selectedVague.horaires.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-gray-700 mb-3">

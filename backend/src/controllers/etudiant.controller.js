@@ -158,3 +158,26 @@ export const getEtudiantStats = asyncHandler(async (req, res) => {
     "Statistiques des étudiants récupérées avec succès",
   );
 });
+
+// Obtenir tous les étudiants avec détails (niveau, paiements, livres)
+export const getEtudiantsWithDetails = asyncHandler(async (req, res) => {
+  const filters = {
+    actif: req.query.actif,
+    search: req.query.search,
+    niveau_id: req.query.niveau_id,
+    statut_inscription: req.query.statut_inscription,
+    page: req.query.page || 1,
+    limit: req.query.limit || 20,
+  };
+
+  const result = await EtudiantModel.findAllWithDetails(filters);
+
+  return paginatedResponse(
+    res,
+    result.etudiants,
+    result.page,
+    result.limit,
+    result.total,
+    "Liste détaillée des étudiants récupérée avec succès",
+  );
+});

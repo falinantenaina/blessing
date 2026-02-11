@@ -79,7 +79,7 @@ class VagueModel {
               n.code as niveau_code, n.nom as niveau_nom,
               u.nom as enseignant_nom, u.prenom as enseignant_prenom,
               s.nom as salle_nom, s.capacite as salle_capacite,
-              (SELECT COUNT(*) FROM inscriptions WHERE vague_id = v.id AND statut = 'actif') as nb_inscrits
+              (SELECT COUNT(*) FROM inscriptions WHERE vague_id = v.id AND statut_inscription IN ('actif', 'validee', 'en_attente')) as nb_inscrits
        FROM vagues v
        LEFT JOIN niveaux n ON v.niveau_id = n.id
        LEFT JOIN utilisateurs u ON v.enseignant_id = u.id
@@ -116,7 +116,7 @@ class VagueModel {
              n.code as niveau_code, n.nom as niveau_nom,
              u.nom as enseignant_nom, u.prenom as enseignant_prenom,
              s.nom as salle_nom,
-             (SELECT COUNT(*) FROM inscriptions WHERE vague_id = v.id AND statut = 'actif') as nb_inscrits
+             (SELECT COUNT(*) FROM inscriptions WHERE vague_id = v.id AND statut_inscription IN ('actif', 'validee', 'en_attente')) as nb_inscrits
       FROM vagues v
       LEFT JOIN niveaux n ON v.niveau_id = n.id
       LEFT JOIN utilisateurs u ON v.enseignant_id = u.id
@@ -321,7 +321,7 @@ class VagueModel {
   static async checkCapacite(vagueId) {
     const [rows] = await pool.execute(
       `SELECT v.capacite_max,
-              (SELECT COUNT(*) FROM inscriptions WHERE vague_id = v.id AND statut = 'actif') as nb_inscrits
+              (SELECT COUNT(*) FROM inscriptions WHERE vague_id = v.id AND statut_inscription IN ('actif', 'validee', 'en_attente')) as nb_inscrits
        FROM vagues v
        WHERE v.id = ?`,
       [vagueId],
@@ -339,7 +339,7 @@ class VagueModel {
              n.code as niveau_code,
              u.nom as enseignant_nom, u.prenom as enseignant_prenom,
              s.nom as salle_nom,
-             (SELECT COUNT(*) FROM inscriptions WHERE vague_id = v.id AND statut = 'actif') as nb_inscrits
+             (SELECT COUNT(*) FROM inscriptions WHERE vague_id = v.id AND statut_inscription IN ('actif', 'validee', 'en_attente')) as nb_inscrits
       FROM vagues v
       LEFT JOIN niveaux n ON v.niveau_id = n.id
       LEFT JOIN utilisateurs u ON v.enseignant_id = u.id
@@ -389,94 +389,85 @@ class VagueModel {
   //Obtenir la liste des étudiants inscripts à une vague
 
   static async getEtudiants(vagueId, filters = {}) {
-    // Vérifier que la vague existe
     const [vagueRows] = await pool.execute(
       `SELECT v.id, v.nom, v.capacite_max, v.statut,
-              n.code as niveau_code, n.nom as niveau_nom,
-              (SELECT COUNT(*) FROM inscriptions WHERE vague_id = v.id AND statut = 'actif') as nb_inscrits
-       FROM vagues v
-       LEFT JOIN niveaux n ON v.niveau_id = n.id
-       WHERE v.id = ?`,
+            n.code as niveau_code, n.nom as niveau_nom,
+            (SELECT COUNT(*) FROM inscriptions 
+             WHERE vague_id = v.id 
+             AND statut_inscription IN ('actif','validee','en_attente')) as nb_inscrits
+     FROM vagues v
+     LEFT JOIN niveaux n ON v.niveau_id = n.id
+     WHERE v.id = ?`,
       [vagueId],
     );
 
     if (vagueRows.length === 0) return null;
 
-    // Construire la requête des étudiants
     let query = `
-      SELECT 
-        e.id as etudiant_id,
-        e.nom,
-        e.prenom,
-        e.telephone,
-        e.email,
-        e.photo_url,
-        i.id as inscription_id,
-        i.statut as inscription_statut,
-        i.date_inscription,
-        i.remarques,
-        ec.montant_total,
-        ec.montant_paye,
-        ec.montant_restant,
-        ec.frais_inscription_paye,
-        ec.statut as statut_ecolage,
-        (SELECT COUNT(*) FROM livres l WHERE l.inscription_id = i.id AND l.statut_paiement = 'paye') as livres_payes,
-        (SELECT COUNT(*) FROM livres l WHERE l.inscription_id = i.id AND l.statut_livraison = 'livre') as livres_livres
-      FROM inscriptions i
-      JOIN etudiants e ON i.etudiant_id = e.id
-      LEFT JOIN ecolages ec ON i.id = ec.inscription_id
-      WHERE i.vague_id = ?
-    `;
+    SELECT 
+      e.id as etudiant_id,
+      e.nom, e.prenom, e.telephone, e.email,
+      i.id as inscription_id,
+      i.statut_inscription,
+      i.date_inscription,
+      i.frais_inscription_paye,
+      i.remarques,
+      n.frais_inscription as montant_frais_inscription,
+      -- Livre cours
+      lc.prix as prix_livre_cours,
+      lc.statut_paiement as livre_cours_paye,
+      lc.statut_livraison as livre_cours_livre,
+      -- Livre exercices  
+      le.prix as prix_livre_exercices,
+      le.statut_paiement as livre_exercices_paye,
+      le.statut_livraison as livre_exercices_livre,
+      -- Total payé (paiements réels)
+      COALESCE((
+        SELECT SUM(p.montant) FROM paiements p WHERE p.inscription_id = i.id
+      ), 0) as montant_paye,
+      -- Montant total = frais inscription + livres
+      (n.frais_inscription + COALESCE(lc.prix,0) + COALESCE(le.prix,0)) as montant_total
+    FROM inscriptions i
+    JOIN etudiants e ON i.etudiant_id = e.id
+    JOIN vagues v ON i.vague_id = v.id
+    JOIN niveaux n ON v.niveau_id = n.id
+    LEFT JOIN livres lc ON lc.inscription_id = i.id AND lc.type_livre = 'cours'
+    LEFT JOIN livres le ON le.inscription_id = i.id AND le.type_livre = 'exercices'
+    WHERE i.vague_id = ?
+  `;
     const params = [vagueId];
 
-    // Filtre par statut d'inscription
     if (filters.statut_inscription) {
-      query += " AND i.statut = ?";
+      query += " AND i.statut_inscription = ?";
       params.push(filters.statut_inscription);
     }
-
-    // Filtre par statut de paiement
-    if (filters.statut_ecolage) {
-      query += " AND ec.statut = ?";
-      params.push(filters.statut_ecolage);
-    }
-
-    // Recherche par nom, prénom ou téléphone
     if (filters.search) {
       query += " AND (e.nom LIKE ? OR e.prenom LIKE ? OR e.telephone LIKE ?)";
-      const searchTerm = `%${filters.search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
+      const s = `%${filters.search}%`;
+      params.push(s, s, s);
     }
 
-    // Compter le total avant pagination
+    // Count total
     let countQuery = `
-      SELECT COUNT(*) as total
-      FROM inscriptions i
-      JOIN etudiants e ON i.etudiant_id = e.id
-      LEFT JOIN ecolages ec ON i.id = ec.inscription_id
-      WHERE i.vague_id = ?
-    `;
+    SELECT COUNT(*) as total
+    FROM inscriptions i
+    JOIN etudiants e ON i.etudiant_id = e.id
+    WHERE i.vague_id = ?
+  `;
     const countParams = [vagueId];
-
     if (filters.statut_inscription) {
-      countQuery += " AND i.statut = ?";
+      countQuery += " AND i.statut_inscription = ?";
       countParams.push(filters.statut_inscription);
-    }
-    if (filters.statut_ecolage) {
-      countQuery += " AND ec.statut = ?";
-      countParams.push(filters.statut_ecolage);
     }
     if (filters.search) {
       countQuery +=
         " AND (e.nom LIKE ? OR e.prenom LIKE ? OR e.telephone LIKE ?)";
-      const searchTerm = `%${filters.search}%`;
-      countParams.push(searchTerm, searchTerm, searchTerm);
+      const s = `%${filters.search}%`;
+      countParams.push(s, s, s);
     }
 
     const [countResult] = await pool.execute(countQuery, countParams);
-    const total = countResult[0].total;
 
-    // Pagination
     const page = parseInt(filters.page) || 1;
     const limit = parseInt(filters.limit) || 20;
     const offset = (page - 1) * limit;
@@ -486,10 +477,17 @@ class VagueModel {
 
     const [etudiants] = await pool.execute(query, params);
 
+    // Calculer montant_restant pour chaque étudiant
+    const etudiantsAvecRestant = etudiants.map((et) => ({
+      ...et,
+      montant_restant:
+        parseFloat(et.montant_total) - parseFloat(et.montant_paye),
+    }));
+
     return {
       vague: vagueRows[0],
-      etudiants,
-      total,
+      etudiants: etudiantsAvecRestant,
+      total: countResult[0].total,
       page,
       limit,
     };
