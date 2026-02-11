@@ -40,13 +40,10 @@ export const getEtudiantComplet = asyncHandler(async (req, res) => {
       return errorResponse(res, "Étudiant introuvable", 404);
     }
 
-    console.log("✅ Étudiant trouvé:", etudiant.id);
-
     // 2. Récupérer toutes les inscriptions (avec gestion d'erreur)
     let inscriptions = [];
     try {
       inscriptions = await InscriptionModel.findByEtudiant(id);
-      console.log("✅ Inscriptions trouvées:", inscriptions.length);
     } catch (error) {
       console.error("⚠️ Erreur inscriptions:", error.message);
       // Continue même si les inscriptions échouent
@@ -58,7 +55,6 @@ export const getEtudiantComplet = asyncHandler(async (req, res) => {
       // Vérifier si la méthode existe
       if (typeof FinanceModel.getEcolagesByEtudiant === 'function') {
         const ecolages = await FinanceModel.getEcolagesByEtudiant(id);
-        console.log("✅ Écolages trouvés:", ecolages.length);
 
         // Pour chaque écolage, récupérer les paiements
         ecolagesAvecPaiements = await Promise.all(
@@ -219,8 +215,6 @@ export const getEtudiantComplet = asyncHandler(async (req, res) => {
         )
         .sort((a, b) => new Date(b.date_paiement) - new Date(a.date_paiement)),
     };
-
-    console.log("✅ Réponse construite avec succès");
 
     return successResponse(
       res,

@@ -23,6 +23,7 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+
   const [filters, setFilters] = useState({
     role: "",
     actif: "",
@@ -35,7 +36,7 @@ export default function Users() {
     email: "",
     telephone: "",
     password: "",
-    role: "etudiant",
+    role: "secretaire",
   });
 
   useEffect(() => {
@@ -45,8 +46,16 @@ export default function Users() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const response = await userService.getAll(filters);
-      setUsers(response.data || response);
+      // Créer un objet de filtres propres (sans les champs vides)
+      const cleanFilters = {};
+      if (filters.role) cleanFilters.role = filters.role;
+      if (filters.actif) cleanFilters.actif = filters.actif;
+      if (filters.search) cleanFilters.search = filters.search;
+
+      const response = await userService.getAll(cleanFilters);
+
+      // Correction de l'accès aux données : l'API renvoie { data: [...] }
+      setUsers(response.data || []);
     } catch (error) {
       toast.error("Erreur lors du chargement des utilisateurs");
     } finally {
@@ -84,7 +93,7 @@ export default function Users() {
     try {
       if (selectedUser) {
         await userService.update(selectedUser.id, formData);
-        toast.success("Utilisateur mis à jour");
+        toast.success("Utilisateur modifié");
       } else {
         await userService.create(formData);
         toast.success("Utilisateur créé");
@@ -92,40 +101,44 @@ export default function Users() {
       setShowModal(false);
       loadUsers();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Erreur d'enregistrement");
+      toast.error(
+        error.response?.data?.message || "Erreur lors de l'enregistrement",
+      );
     }
   };
 
   const handleToggleActive = async (user) => {
     try {
       await userService.toggleActive(user.id);
-      toast.success("Statut mis à jour");
+      toast.success(`Utilisateur ${user.actif ? "désactivé" : "activé"}`);
       loadUsers();
     } catch (error) {
-      toast.error("Erreur de modification");
+      toast.error("Impossible de changer le statut");
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Voulez-vous vraiment supprimer cet utilisateur ?"))
-      return;
+    if (!window.confirm("Confirmer la suppression ?")) return;
     try {
       await userService.delete(id);
       toast.success("Utilisateur supprimé");
       loadUsers();
     } catch (error) {
-      toast.error("Erreur de suppression");
+      toast.error("Erreur lors de la suppression");
     }
   };
 
-  if (loading && users.length === 0) return <Loading fullScreen />;
+  if (loading && users.length === 0) {
+    return <Loading fullScreen />;
+  }
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Utilisateurs</h1>
         <Button onClick={() => handleOpenModal()} variant="primary">
-          <Plus className="w-4 h-4 mr-2" /> Nouveau
+          <Plus className="w-4 h-4 mr-2" />
+          Nouveau
         </Button>
       </div>
 
@@ -143,7 +156,6 @@ export default function Users() {
             { label: "Admin", value: "admin" },
             { label: "Secrétaire", value: "secretaire" },
             { label: "Enseignant", value: "enseignant" },
-            { label: "Etudiant", value: "etudiant" },
           ]}
         />
         <Select
@@ -157,10 +169,9 @@ export default function Users() {
         />
       </div>
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div className="bg-white shadow rounded-lg overflow-hidden border border-gray-200">
         <Table>
           <TableHeader>
-            {/* Supprime le <TableRow> ici s'il est déjà dans ton composant TableHeader */}
             <TableHead>Nom complet</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Rôle</TableHead>
@@ -168,36 +179,67 @@ export default function Users() {
             <TableHead className="text-right">Actions</TableHead>
           </TableHeader>
           <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell className="font-medium">
-                  {user.prenom} {user.nom}
+            {users.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="text-center py-8 text-gray-500"
+                >
+                  Aucun utilisateur trouvé
                 </TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{getRoleLabel(user.role)}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={user.actif ? "success" : "danger"}>
-                    {user.actif ? "Actif" : "Inactif"}
-                  </Badge>
-                </TableCell>
-                {/* ... reste des cellules */}
               </TableRow>
-            ))}
+            ) : (
+              users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">
+                    {user.prenom || "?"} {user.nom || "?"}
+                  </TableCell>
+                  <TableCell>{user.email || "—"}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">
+                      {getRoleLabel(user.role) || user.role || "?"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={user.actif ? "success" : "danger"}>
+                      {user.actif ? "Actif" : "Inactif"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right space-x-1.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleOpenModal(user)}
+                      title="Modifier"
+                    >
+                      <Edit size={16} />
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                      onClick={() => handleDelete(user.id)}
+                      title="Supprimer"
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
 
+      {/* Modal création / modification */}
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title={
-          selectedUser ? "Modifier l'utilisateur" : "Ajouter un utilisateur"
-        }
+        title={selectedUser ? "Modifier l'utilisateur" : "Nouvel utilisateur"}
       >
-        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-5 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Prénom"
               value={formData.prenom}
@@ -215,6 +257,7 @@ export default function Users() {
               required
             />
           </div>
+
           <Input
             label="Email"
             type="email"
@@ -224,6 +267,7 @@ export default function Users() {
             }
             required
           />
+
           <Input
             label="Téléphone"
             value={formData.telephone}
@@ -231,6 +275,7 @@ export default function Users() {
               setFormData({ ...formData, telephone: e.target.value })
             }
           />
+
           {!selectedUser && (
             <Input
               label="Mot de passe"
@@ -242,26 +287,29 @@ export default function Users() {
               required
             />
           )}
+
           <Select
             label="Rôle"
             value={formData.role}
             onChange={(e) => setFormData({ ...formData, role: e.target.value })}
             options={[
-              { label: "Admin", value: "admin" },
+              { label: "Administrateur", value: "admin" },
               { label: "Secrétaire", value: "secretaire" },
               { label: "Enseignant", value: "enseignant" },
-              { label: "Etudiant", value: "etudiant" },
             ]}
           />
-          <div className="flex justify-end gap-3 mt-8">
+
+          <div className="flex justify-end gap-3 pt-6 border-t">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               onClick={() => setShowModal(false)}
             >
               Annuler
             </Button>
-            <Button type="submit">Enregistrer</Button>
+            <Button type="submit">
+              {selectedUser ? "Mettre à jour" : "Créer"}
+            </Button>
           </div>
         </form>
       </Modal>
