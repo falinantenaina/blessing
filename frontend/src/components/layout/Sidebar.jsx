@@ -28,8 +28,8 @@ export default function Sidebar({ onLogout }) {
       roles: ["admin", "secretaire", "enseignant", "etudiant"],
     },
     {
-      name: "Inscriptions",
-      href: "/inscription",
+      name: "Liste étudiant",
+      href: "/list-etudiant",
       icon: LogIn,
       roles: ["admin", "secretaire"],
     },

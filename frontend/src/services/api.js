@@ -1,5 +1,58 @@
-// services/api.js - Version améliorée adaptée au backend
+// services/api.js - Version améliorée avec endpoint étudiant complet
 import axios from "../config/axios";
+
+// ============================================
+// ETUDIANTS SERVICES - VERSION ENRICHIE
+// ============================================
+export const etudiantService = {
+  // ✅ Liste paginée
+  async getAll(params = {}) {
+    const response = await axios.get("/etudiants", { params });
+    return response.data;
+  },
+
+  // ✅ Détails BASIQUES (ancien endpoint - conservé pour compatibilité)
+  async getById(id) {
+    const response = await axios.get(`/etudiants/${id}`);
+    return response.data;
+  },
+
+  // 🆕 NOUVEAU: Détails COMPLETS avec finance, vagues, livres, etc.
+  async getComplet(id) {
+    const response = await axios.get(`/etudiants/${id}/complet`);
+    return response.data;
+  },
+
+  // ✅ Création
+  async create(data) {
+    const response = await axios.post("/etudiants", data);
+    return response.data;
+  },
+
+  // ✅ Mise à jour
+  async update(id, data) {
+    const response = await axios.put(`/etudiants/${id}`, data);
+    return response.data;
+  },
+
+  // ✅ Désactiver (delete logique)
+  async deactivate(id) {
+    const response = await axios.delete(`/etudiants/${id}`);
+    return response.data;
+  },
+
+  // ✅ Toggle actif/inactif
+  async toggle(id) {
+    const response = await axios.patch(`/etudiants/${id}/toggle`);
+    return response.data;
+  },
+
+  // ✅ Stats
+  async getStats() {
+    const response = await axios.get("/etudiants/stats");
+    return response.data;
+  },
+};
 
 // ============================================
 // AUTHENTICATION SERVICES
@@ -87,7 +140,7 @@ export const vagueService = {
 };
 
 // ============================================
-// NIVEAUX SERVICES (ENDPOINT CORRIGÉ)
+// NIVEAUX SERVICES
 // ============================================
 export const niveauService = {
   getAll: async (params = {}) => {
@@ -122,7 +175,7 @@ export const niveauService = {
 };
 
 // ============================================
-// SALLES SERVICES (ENDPOINT CORRIGÉ)
+// SALLES SERVICES
 // ============================================
 export const salleService = {
   getAll: async (params = {}) => {
@@ -172,7 +225,7 @@ export const salleService = {
 };
 
 // ============================================
-// JOURS SERVICES (ENDPOINT CORRIGÉ)
+// JOURS SERVICES
 // ============================================
 export const jourService = {
   getAll: async (params = {}) => {
@@ -197,7 +250,7 @@ export const jourService = {
 };
 
 // ============================================
-// HORAIRES SERVICES (ENDPOINT CORRIGÉ)
+// HORAIRES SERVICES
 // ============================================
 export const horaireService = {
   getAll: async (params = {}) => {
@@ -236,7 +289,7 @@ export const horaireService = {
 // ============================================
 export const userService = {
   getAll: async (params = {}) => {
-    const response = await axios.get("/users" /* { params } */);
+    const response = await axios.get("/users", { params });
     return response.data;
   },
 
@@ -350,6 +403,14 @@ export const financeService = {
     return response.data;
   },
 
+  // Alias pour compatibilité avec ListeEtudiant.jsx
+  getByEtudiant: async (etudiantId) => {
+    const response = await axios.get(
+      `/finance/ecolages/etudiant/${etudiantId}`,
+    );
+    return response.data;
+  },
+
   annulerPaiement: async (paiementId) => {
     const response = await axios.delete(`/finance/paiements/${paiementId}`);
     return response.data;
@@ -367,7 +428,7 @@ export const financeService = {
 };
 
 // ============================================
-// ECOLES SERVICES (depuis reference_controller)
+// ECOLES SERVICES
 // ============================================
 export const ecoleService = {
   getAll: async () => {
@@ -426,50 +487,6 @@ export const referenceService = {
   createEcole: async (data) => ecoleService.create(data),
   updateEcole: async (id, data) => ecoleService.update(id, data),
   deleteEcole: async (id) => ecoleService.delete(id),
-};
-
-export const etudiantService = {
-  // ✅ Liste paginée
-  async getAll(params = {}) {
-    const response = await axios.get("/etudiants", { params });
-    return response.data;
-  },
-
-  // ✅ Détails
-  async getById(id) {
-    const response = await axios.get(`/etudiants/${id}`);
-    return response.data;
-  },
-
-  // ✅ Création
-  async create(data) {
-    const response = await axios.post("/etudiants", data);
-    return response.data;
-  },
-
-  // ✅ Mise à jour
-  async update(id, data) {
-    const response = await axios.put(`/etudiants/${id}`, data);
-    return response.data;
-  },
-
-  // ✅ Désactiver (delete logique)
-  async deactivate(id) {
-    const response = await axios.delete(`/etudiants/${id}`);
-    return response.data;
-  },
-
-  // ✅ Toggle actif/inactif
-  async toggle(id) {
-    const response = await axios.patch(`/etudiants/${id}/toggle`);
-    return response.data;
-  },
-
-  // ✅ Stats
-  async getStats() {
-    const response = await axios.get("/etudiants/stats");
-    return response.data;
-  },
 };
 
 export default {

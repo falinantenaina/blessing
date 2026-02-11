@@ -1,30 +1,20 @@
-import express from "express";
-import {
-  createEtudiant,
-  deleteEtudiant,
-  getEtudiantById,
-  getEtudiants,
-  getEtudiantStats,
-  toggleEtudiantActive,
-  updateEtudiant,
-} from "../controllers/etudiant.controller.js";
-import {
-  authenticate,
-  isAdminOrSecretaire,
-} from "../middleware/auth.middleware.js";
+import express from 'express';
+import * as etudiantController from '../controllers/etudiant.controller.js';
+import { authenticate } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-// Toutes les routes nécessitent une authentification
 router.use(authenticate);
 
-// Routes protégées (admin/secrétaire uniquement)
-router.get("/", isAdminOrSecretaire, getEtudiants);
-router.get("/stats", isAdminOrSecretaire, getEtudiantStats);
-router.get("/:id", isAdminOrSecretaire, getEtudiantById);
-router.post("/", isAdminOrSecretaire, createEtudiant);
-router.put("/:id", isAdminOrSecretaire, updateEtudiant);
-router.delete("/:id", isAdminOrSecretaire, deleteEtudiant);
-router.patch("/:id/toggle", isAdminOrSecretaire, toggleEtudiantActive);
+router.get('/:id/complet', etudiantController.getEtudiantComplet);
+
+router.get('/stats', etudiantController.getEtudiantStats);
+
+router.get('/', etudiantController.getEtudiants);
+router.get('/:id', etudiantController.getEtudiantById);
+router.post('/', etudiantController.createEtudiant);
+router.put('/:id', etudiantController.updateEtudiant);
+router.delete('/:id', etudiantController.deleteEtudiant);
+router.patch('/:id/toggle', etudiantController.toggleEtudiantActive);
 
 export default router;

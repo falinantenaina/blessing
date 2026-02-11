@@ -1,7 +1,7 @@
 import {
   BookOpen,
-  Eye,
-  EyeOff,
+  Clock,
+  Home,
   Loader2,
   Mail,
   Phone,
@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
-  authService,
   niveauService,
   vagueService,
   inscriptionService,
@@ -20,10 +19,7 @@ import { useNavigate } from "react-router-dom";
 const InscriptionEtudiant = () => {
   const navigate = useNavigate();
 
-  const [isLogin, setIsLogin] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-
+  const [isLoading, setIsLoading] = useState(false);
   const [vaguesList, setVaguesList] = useState([]);
   const [niveaux, setNiveaux] = useState([]);
 
@@ -31,18 +27,12 @@ const InscriptionEtudiant = () => {
   const [niveauSelected, setNiveauSelected] = useState("");
   const [vagueSelected, setVagueSelected] = useState(null);
 
-  const [loginData, setLoginData] = useState({
-    email: "",
-    password: "",
-  });
-
-  const [signupData, setSignupData] = useState({
+  const [formData, setFormData] = useState({
     nom: "",
     prenom: "",
     telephone: "",
-    vague_id: "",
     email: "",
-    password: "",
+    vague_id: "",
   });
 
   useEffect(() => {
@@ -76,15 +66,12 @@ const InscriptionEtudiant = () => {
       (!niveauSelected || v.niveau_id == niveauSelected),
   );
 
-  const handleLoginChange = (e) =>
-    setLoginData({ ...loginData, [e.target.name]: e.target.value });
-
-  const handleSignupChange = (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
 
     if (name === "mode_cours") {
       setModeCours(value);
-      setSignupData({ ...signupData, vague_id: "" });
+      setFormData({ ...formData, vague_id: "" });
       setNiveauSelected("");
       setVagueSelected(null);
       return;
@@ -92,53 +79,37 @@ const InscriptionEtudiant = () => {
 
     if (name === "niveau_id") {
       setNiveauSelected(value);
-      setSignupData({ ...signupData, vague_id: "" });
+      setFormData({ ...formData, vague_id: "" });
       setVagueSelected(null);
       return;
     }
 
     if (name === "vague_id") {
-      setSignupData({ ...signupData, vague_id: value });
+      setFormData({ ...formData, vague_id: value });
       const found = vaguesFiltrees.find((v) => v.id == value);
       setVagueSelected(found || null);
       return;
     }
 
-    setSignupData({ ...signupData, [name]: value });
+    setFormData({ ...formData, [name]: value });
   };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await authService.login(loginData.email, loginData.password);
-      toast.success("Connexion réussie !");
-      navigate("/dashboard");
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Erreur de connexion");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignup = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (modeCours === "salle" && !signupData.vague_id) {
+    if (modeCours === "salle" && !formData.vague_id) {
       toast.error("Veuillez choisir une session");
       return;
     }
 
-    setLoading(true);
+    setIsLoading(true);
     try {
-      // Préparation du payload avec les clés attendues par le backend
       const payload = {
-        etudiant_nom: signupData.nom,
-        etudiant_prenom: signupData.prenom,
-        etudiant_telephone: signupData.telephone,
-        etudiant_email: signupData.email,
-        vague_id: signupData.vague_id,
-        // Ajout des valeurs par défaut pour les champs requis par le contrôleur
+        etudiant_nom: formData.nom,
+        etudiant_prenom: formData.prenom,
+        etudiant_telephone: formData.telephone,
+        etudiant_email: formData.email,
+        vague_id: formData.vague_id,
         methode_paiement: "mobile_money",
         frais_inscription_paye: 0,
         montant_ecolage_initial: 0,
@@ -147,259 +118,219 @@ const InscriptionEtudiant = () => {
         remarques: "Inscription via site web",
       };
 
-      console.log("Envoi à : /api/inscriptions/public", payload);
-
-      const response = await inscriptionService.create(payload);
+      await inscriptionService.create(payload);
+      toast.success("Inscription réussie !");
       navigate("/register-success");
-
-      if (response) {
-        toast.success("Inscription réussie !");
-        setIsLogin(true);
-      }
     } catch (error) {
-      console.error("Détails erreur:", error.response?.data);
       toast.error(
-        error.response?.data?.message || "Erreur lors de l'inscription",
+        error.response?.data?.message || "Erreur lors de l'inscription"
       );
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-50 to-blue-50 overflow-hidden relative">
-      <div className="relative h-screen max-h-screen flex overflow-hidden">
-        <div className="hidden lg:block lg:w-1/2 fixed inset-y-0 left-0 z-10 bg-linear-to-br from-[#0a3d5c]/10 to-blue-50">
-          <div className="h-full flex flex-col justify-center items-center p-12">
-            <div className="max-w-md text-center">
-              <img
-                src="/blessing-school.png"
-                alt="blessing school"
-                className="w-60 mx-auto mb-8"
-              />
-              <div className="space-y-6 text-left max-w-sm mx-auto">
-                <div className="flex items-start gap-4 text-lg text-gray-800">
-                  <div className="w-10 h-10 rounded-full bg-[#0a3d5c]/10 flex items-center justify-center shrink-0">
-                    <BookOpen size={20} className="text-[#0a3d5c]" />
+    <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50/30">
+      <div className="relative flex min-h-screen">
+        {/* Panneau gauche FIXE sur desktop */}
+        <div className="hidden lg:block lg:fixed lg:inset-y-0 lg:left-0 lg:w-5/12 xl:w-1/2 bg-linear-to-br from-[#0a3d5c] to-[#0f5a8a] text-white z-10 overflow-hidden">
+          <div className="h-full flex flex-col justify-center items-center px-8 xl:px-16 py-12">
+            <img
+              src="/iconebless.png "
+              alt="Blessing School"
+              className="w-48 sm:w-56 lg:w-64 xl:w-72 mb-10 drop-shadow-2xl"
+            />
+            <div className="max-w-md space-y-10 text-center lg:text-left">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight">
+                Bienvenue chez Blessing School
+              </h1>
+              <div className="space-y-8">
+                <div className="flex items-start gap-5">
+                  <div className="p-3 bg-white/15 rounded-full backdrop-blur-sm shrink-0">
+                    <BookOpen size={24} />
                   </div>
-                  <span>Éducation de qualité accessible à tous</span>
+                  <p className="text-lg leading-relaxed opacity-90">
+                    Une éducation de qualité accessible à tous
+                  </p>
                 </div>
-                <div className="flex items-start gap-4 text-lg text-gray-800">
-                  <div className="w-10 h-10 rounded-full bg-[#0a3d5c]/10 flex items-center justify-center shrink-0">
-                    <User size={20} className="text-[#0a3d5c]" />
+                <div className="flex items-start gap-5">
+                  <div className="p-3 bg-white/15 rounded-full backdrop-blur-sm shrink-0">
+                    <User size={24} />
                   </div>
-                  <span>Accompagnement personnalisé</span>
+                  <p className="text-lg leading-relaxed opacity-90">
+                    Accompagnement personnalisé et suivi régulier
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="w-full lg:ml-[50%] lg:w-1/2 h-screen overflow-y-auto">
-          <div className="min-h-full flex items-center justify-center p-6 sm:p-8 lg:p-12">
-            <div className="w-full max-w-md py-12">
-              <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold text-[#0a3d5c]">
-                  {isLogin ? "Bienvenue !" : "Rejoins-nous"}
-                </h2>
+        {/* Contenu principal - décalé à droite sur desktop */}
+        <div className="flex-1 lg:ml-[41.666667%] xl:ml-1/2 min-h-screen flex items-center justify-center px-5 py-10 sm:px-8 md:px-12 lg:px-16">
+          <div className="w-full max-w-xl">
+            <div className="text-center mb-10">
+              <h2 className="text-3xl sm:text-4xl font-bold text-[#0a3d5c] mb-3">
+                Inscription
+              </h2>
+              <p className="text-gray-600 text-base sm:text-lg">
+                Remplis les champs ci-dessous pour t'inscrire rapidement
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <input
+                  type="text"
+                  name="prenom"
+                  placeholder="Prénom"
+                  onChange={handleChange}
+                  className="w-full px-5 py-4 rounded-2xl border border-gray-300 focus:border-[#0a3d5c] focus:ring-2 focus:ring-[#0a3d5c]/20 outline-none transition-all shadow-sm text-base"
+                  required
+                  disabled={isLoading}
+                />
+                <input
+                  type="text"
+                  name="nom"
+                  placeholder="Nom"
+                  onChange={handleChange}
+                  className="w-full px-5 py-4 rounded-2xl border border-gray-300 focus:border-[#0a3d5c] focus:ring-2 focus:ring-[#0a3d5c]/20 outline-none transition-all shadow-sm text-base"
+                  required
+                  disabled={isLoading}
+                />
               </div>
 
-              <div className="flex mb-10 bg-gray-100 rounded-full p-1.5 shadow-inner">
-                <button
-                  onClick={() => setIsLogin(true)}
-                  className={`flex-1 py-3 rounded-full font-medium transition-all ${
-                    isLogin
-                      ? "bg-white shadow-md text-[#0a3d5c]"
-                      : "text-gray-600"
-                  }`}
-                >
-                  Connexion
-                </button>
-                <button
-                  onClick={() => setIsLogin(false)}
-                  className={`flex-1 py-3 rounded-full font-medium transition-all ${
-                    !isLogin
-                      ? "bg-white shadow-md text-[#0a3d5c]"
-                      : "text-gray-600"
-                  }`}
-                >
-                  Inscription
-                </button>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                  <Phone size={20} className="text-gray-400" />
+                </div>
+                <input
+                  type="tel"
+                  name="telephone"
+                  placeholder="Téléphone"
+                  onChange={handleChange}
+                  className="w-full pl-14 pr-5 py-4 rounded-2xl border border-gray-300 focus:border-[#0a3d5c] focus:ring-2 focus:ring-[#0a3d5c]/20 outline-none transition-all shadow-sm text-base"
+                  required
+                  disabled={isLoading}
+                />
               </div>
 
-              <form
-                onSubmit={isLogin ? handleLogin : handleSignup}
-                className="space-y-5"
-              >
-                {!isLogin && (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <input
-                        type="text"
-                        name="prenom"
-                        placeholder="Prénom"
-                        onChange={handleSignupChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#0a3d5c]/20"
-                        required
-                        disabled={loading}
-                      />
-                      <input
-                        type="text"
-                        name="nom"
-                        placeholder="Nom"
-                        onChange={handleSignupChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#0a3d5c]/20"
-                        required
-                        disabled={loading}
-                      />
-                    </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 ml-1">
+                  Mode de cours
+                </label>
+                <select
+                  name="mode_cours"
+                  value={modeCours}
+                  onChange={handleChange}
+                  className="w-full px-5 py-4 rounded-2xl border border-gray-300 focus:border-[#0a3d5c] focus:ring-2 focus:ring-[#0a3d5c]/20 outline-none transition-all shadow-sm text-base"
+                >
+                  <option value="salle">En salle</option>
+                  <option value="ligne">En ligne</option>
+                </select>
+              </div>
 
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center">
-                        <Phone size={18} className="text-gray-400" />
-                      </div>
-                      <input
-                        type="tel"
-                        name="telephone"
-                        placeholder="Téléphone"
-                        onChange={handleSignupChange}
-                        className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#0a3d5c]/20"
-                        required
-                        disabled={loading}
-                      />
-                    </div>
+              {modeCours === "salle" && (
+                <>
+                  <select
+                    name="niveau_id"
+                    value={niveauSelected}
+                    onChange={handleChange}
+                    className="w-full px-5 py-4 rounded-2xl border border-gray-300 focus:border-[#0a3d5c] focus:ring-2 focus:ring-[#0a3d5c]/20 outline-none transition-all shadow-sm text-base"
+                    required
+                  >
+                    <option value="">Choisir un niveau...</option>
+                    {niveaux.map((n) => (
+                      <option key={n.id} value={n.id}>
+                        {n.nom}
+                      </option>
+                    ))}
+                  </select>
 
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-gray-700 ml-1">
-                        Mode de cours
-                      </label>
-                      <select
-                        name="mode_cours"
-                        value={modeCours}
-                        onChange={handleSignupChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#0a3d5c]/20"
-                      >
-                        <option value="salle">En salle</option>
-                        <option value="ligne">En ligne</option>
-                      </select>
-                    </div>
+                  {niveauSelected && (
+                    <div className="space-y-5">
+                      <h3 className="text-base font-semibold text-gray-700">
+                        Sessions disponibles :
+                      </h3>
 
-                    {modeCours === "salle" && (
-                      <>
-                        <select
-                          name="niveau_id"
-                          value={niveauSelected}
-                          onChange={handleSignupChange}
-                          className="w-full px-4 py-3 rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#0a3d5c]/20"
-                          required
-                        >
-                          <option value="">Choisir un niveau...</option>
-                          {niveaux.map((n) => (
-                            <option key={n.id} value={n.id}>
-                              {n.nom}
-                            </option>
-                          ))}
-                        </select>
-
-                        {niveauSelected && (
-                          <div className="space-y-4 mt-4">
-                            <h3 className="text-sm font-semibold text-gray-700">
-                              Sessions disponibles :
-                            </h3>
-                            {vaguesFiltrees.length === 0 && (
-                              <p className="text-sm text-gray-500">
-                                Aucune vague disponible.
-                              </p>
-                            )}
-                            {vaguesFiltrees.map((v) => (
-                              <div
-                                key={v.id}
-                                className={`p-4 border rounded-xl shadow-sm cursor-pointer transition-all ${
-                                  signupData.vague_id == v.id
-                                    ? "border-[#0a3d5c] bg-[#0a3d5c]/5"
-                                    : "hover:border-gray-400"
-                                }`}
-                                onClick={() => {
-                                  setSignupData({
-                                    ...signupData,
-                                    vague_id: v.id,
-                                  });
-                                  setVagueSelected(v);
-                                }}
-                              >
-                                <div className="flex justify-between items-center">
-                                  <h4 className="font-bold text-[#0a3d5c]">
-                                    {v.nom}
-                                  </h4>
-                                  <span className="text-xs px-3 py-1 rounded-full bg-gray-100">
-                                    {v.capacite_max - (v.nb_inscrits || 0)}{" "}
-                                    places
-                                  </span>
-                                </div>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  📍 {v.salle_nom}
+                      {vaguesFiltrees.length === 0 ? (
+                        <div className="p-6 bg-gray-50 rounded-2xl text-center text-gray-600 border border-dashed">
+                          Aucune vague disponible pour le moment
+                        </div>
+                      ) : (
+                        <div className="grid gap-4">
+                          {vaguesFiltrees.map((v) => (
+                            <div
+                              key={v.id}
+                              onClick={() =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  vague_id: v.id,
+                                }))
+                              }
+                              className={`p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200 ${
+                                formData.vague_id == v.id
+                                  ? "border-[#0a3d5c] bg-[#0a3d5c]/5 shadow-md"
+                                  : "border-gray-200 hover:border-gray-300 hover:shadow-sm bg-white"
+                              }`}
+                            >
+                              <div className="flex justify-between items-start mb-3">
+                                <h4 className="font-bold text-lg text-[#0a3d5c]">
+                                  {v.nom}
+                                </h4>
+                                <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-green-100 text-green-700">
+                                  {v.capacite_max - (v.nb_inscrits || 0)} places
+                                </span>
+                              </div>
+                              <div className="space-y-2 text-sm text-gray-700">
+                                <p className="flex items-center gap-2">
+                                  <Home size={16} className="text-gray-500" />
+                                  {v.salle_nom || "Salle non précisée"}
                                 </p>
-                                <p className="text-sm text-gray-600">
-                                  🕒 {v.horaires_resume}
+                                <p className="flex items-center gap-2">
+                                  <Clock size={16} className="text-gray-500" />
+                                  {v.horaires_resume}
                                 </p>
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </>
-                )}
-
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center">
-                    <Mail size={18} className="text-gray-400" />
-                  </div>
-                  <input
-                    type="email"
-                    name="email"
-                    placeholder="Email"
-                    onChange={isLogin ? handleLoginChange : handleSignupChange}
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#0a3d5c]/20"
-                    required
-                    disabled={loading}
-                  />
-                </div>
-
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    placeholder="Mot de passe"
-                    onChange={isLogin ? handleLoginChange : handleSignupChange}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#0a3d5c]/20"
-                    required
-                    disabled={loading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-3.5 text-gray-500"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-4 bg-[#0a3d5c] text-white font-bold rounded-xl shadow-lg hover:bg-opacity-90 transition-all flex justify-center items-center"
-                >
-                  {loading ? (
-                    <Loader2 className="animate-spin mr-2" size={20} />
-                  ) : isLogin ? (
-                    "Se connecter"
-                  ) : (
-                    "S'inscrire"
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
-                </button>
-              </form>
-            </div>
+                </>
+              )}
+
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                  <Mail size={20} className="text-gray-400" />
+                </div>
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Email"
+                  onChange={handleChange}
+                  className="w-full pl-14 pr-5 py-4 rounded-2xl border border-gray-300 focus:border-[#0a3d5c] focus:ring-2 focus:ring-[#0a3d5c]/20 outline-none transition-all shadow-sm text-base"
+                  disabled={isLoading}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-4.5 bg-[#0a3d5c] hover:bg-[#08324a] text-white font-bold text-lg rounded-2xl shadow-lg transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed mt-8 flex items-center justify-center gap-3"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="animate-spin" size={22} />
+                    Inscription en cours...
+                  </>
+                ) : (
+                  "S'inscrire"
+                )}
+              </button>
+            </form>
           </div>
         </div>
       </div>

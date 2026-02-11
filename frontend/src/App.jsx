@@ -14,6 +14,7 @@ import Salles from "./pages/Salles";
 import Users from "./pages/Users";
 import Vagues from "./pages/Vagues";
 import { useAuthStore } from "./store";
+import ListeEtudiant from "./pages/ListeEtudiant";
 
 function App() {
   const { isAuthenticated } = useAuthStore();
@@ -73,10 +74,10 @@ function App() {
             }
           />
           <Route
-            path="/inscription"
+            path="/list-etudiant"
             element={
               <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
-                <Inscriptions />
+                <ListeEtudiant />
               </ProtectedRoute>
             }
           />

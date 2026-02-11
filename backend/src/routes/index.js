@@ -9,10 +9,8 @@ import niveauRoutes from "./niveau.routes.js";
 import referenceRoutes from "./reference.routes.js";
 import salleRoutes from "./salle.routes.js";
 import userRoutes from "./user.routes.js";
-import {
-  default as etudianRoutes,
-  default as vagueRoutes,
-} from "./vague.routes.js";
+import etudianRoutes from "./etudiant.routes.js";
+import vagueRoutes from "./vague.routes.js";
 
 const router = express.Router();
 
