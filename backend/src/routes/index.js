@@ -1,5 +1,6 @@
 import express from "express";
 import authRoutes from "./auth.routes.js";
+import etudiantRoutes from "./etudiant.routes.js";
 import financeRoutes from "./finance.routes.js";
 import horaireRoutes from "./horaire.routes.js";
 import inscriptionPubliqueRoutes from "./inscription-publique.route.js";
@@ -9,10 +10,7 @@ import niveauRoutes from "./niveau.routes.js";
 import referenceRoutes from "./reference.routes.js";
 import salleRoutes from "./salle.routes.js";
 import userRoutes from "./user.routes.js";
-import {
-  default as etudianRoutes,
-  default as vagueRoutes,
-} from "./vague.routes.js";
+import vagueRoutes from "./vague.routes.js";
 
 const router = express.Router();
 
@@ -29,7 +27,7 @@ router.use("/finances", financeRoutes);
 router.use("/reference", referenceRoutes);
 router.use("/horaires", horaireRoutes);
 router.use("/jours", jourRoutes);
-router.use("/etudiants", etudianRoutes);
+router.use("/etudiants", etudiantRoutes);
 
 // Route de test
 router.get("/health", (req, res) => {

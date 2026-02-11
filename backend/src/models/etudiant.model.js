@@ -34,20 +34,26 @@ class EtudiantModel {
   // Obtenir tous les étudiants avec filtres
   static async findAll(filters = {}) {
     let query = `
-      SELECT e.*,
-             COUNT(DISTINCT i.id) as nb_inscriptions,
-             COUNT(DISTINCT CASE WHEN i.statut = 'actif' THEN i.id END) as nb_inscriptions_actives
-      FROM etudiants e
-      LEFT JOIN inscriptions i ON e.id = i.etudiant_id
-      WHERE 1=1
-    `;
+    SELECT e.*,
+           COUNT(DISTINCT i.id) as nb_inscriptions,
+           COUNT(DISTINCT CASE 
+             WHEN i.statut_inscription = 'actif' 
+             THEN i.id 
+           END) as nb_inscriptions_actives
+    FROM etudiants e
+    LEFT JOIN inscriptions i ON e.id = i.etudiant_id
+    WHERE 1=1
+  `;
+
     const params = [];
 
+    // Filtre actif
     if (filters.actif !== undefined) {
       query += " AND e.actif = ?";
       params.push(filters.actif);
     }
 
+    // Recherche
     if (filters.search) {
       query += " AND (e.nom LIKE ? OR e.prenom LIKE ? OR e.telephone LIKE ?)";
       const searchTerm = `%${filters.search}%`;
@@ -64,10 +70,16 @@ class EtudiantModel {
     query += " ORDER BY e.created_at DESC LIMIT ? OFFSET ?";
     params.push(limit, offset);
 
+    // Exécution
     const [rows] = await pool.execute(query, params);
 
-    // Compter le total
-    let countQuery = "SELECT COUNT(*) as total FROM etudiants e WHERE 1=1";
+    // Total count
+    let countQuery = `
+    SELECT COUNT(*) as total 
+    FROM etudiants e 
+    WHERE 1=1
+  `;
+
     const countParams = [];
 
     if (filters.actif !== undefined) {
