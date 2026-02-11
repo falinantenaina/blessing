@@ -5,13 +5,13 @@ import axios from "../config/axios";
 // ETUDIANTS SERVICES - VERSION ENRICHIE
 // ============================================
 export const etudiantService = {
-  // ✅ Liste paginée
+  //  Liste paginée
   async getAll(params = {}) {
     const response = await axios.get("/etudiants", { params });
     return response.data;
   },
 
-  // ✅ Détails BASIQUES (ancien endpoint - conservé pour compatibilité)
+  //  Détails BASIQUES (ancien endpoint - conservé pour compatibilité)
   async getById(id) {
     const response = await axios.get(`/etudiants/${id}`);
     return response.data;
@@ -23,31 +23,31 @@ export const etudiantService = {
     return response.data;
   },
 
-  // ✅ Création
+  //  Création
   async create(data) {
     const response = await axios.post("/etudiants", data);
     return response.data;
   },
 
-  // ✅ Mise à jour
+  //  Mise à jour
   async update(id, data) {
     const response = await axios.put(`/etudiants/${id}`, data);
     return response.data;
   },
 
-  // ✅ Désactiver (delete logique)
+  //  Désactiver (delete logique)
   async deactivate(id) {
     const response = await axios.delete(`/etudiants/${id}`);
     return response.data;
   },
 
-  // ✅ Toggle actif/inactif
+  //  Toggle actif/inactif
   async toggle(id) {
     const response = await axios.patch(`/etudiants/${id}/toggle`);
     return response.data;
   },
 
-  // ✅ Stats
+  //  Stats
   async getStats() {
     const response = await axios.get("/etudiants/stats");
     return response.data;

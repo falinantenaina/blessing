@@ -98,10 +98,10 @@ export default function Etudiants() {
     try {
       if (selectedEtudiant) {
         await etudiantService.update(selectedEtudiant.id, payload);
-        toast.success("Étudiant modifié avec succès ✅");
+        toast.success("Étudiant modifié avec succès ");
       } else {
         await etudiantService.create(payload);
-        toast.success("Étudiant créé avec succès ✅");
+        toast.success("Étudiant créé avec succès ");
       }
 
       setShowModal(false);
@@ -133,7 +133,7 @@ export default function Etudiants() {
     try {
       await etudiantService.delete(etudiant.id);
 
-      toast.success("Étudiant désactivé avec succès ✅");
+      toast.success("Étudiant désactivé avec succès ");
 
       loadEtudiants();
     } catch (error) {
@@ -153,7 +153,7 @@ export default function Etudiants() {
     try {
       await etudiantService.toggle(etudiant.id);
 
-      toast.success("Statut modifié avec succès ✅");
+      toast.success("Statut modifié avec succès ");
 
       loadEtudiants();
     } catch (error) {

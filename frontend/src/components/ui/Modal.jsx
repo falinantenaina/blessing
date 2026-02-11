@@ -30,7 +30,7 @@ export default function Modal({
       <div className="flex min-h-full items-center justify-center p-4">
         <div 
           className={cn(
-            'relative bg-white rounded-lg shadow-xl w-full',
+            'relative bg-white rounded-lg shadow-xl ',
             sizes[size]
           )}
         >

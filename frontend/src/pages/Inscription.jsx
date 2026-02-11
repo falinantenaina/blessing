@@ -20,7 +20,7 @@ export default function Inscriptions() {
     etudiant_telephone: "",
     etudiant_email: "",
 
-    niveau_id: "", // ✅ Niveau choisi avant vague
+    niveau_id: "", //  Niveau choisi avant vague
     vague_id: "",
 
     // Paiement

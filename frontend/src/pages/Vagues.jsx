@@ -6,6 +6,7 @@ import Modal from "@/components/ui/Modal";
 import Select from "@/components/ui/Select";
 import {
   horaireService,
+  inscriptionService,
   jourService,
   niveauService,
   salleService,
@@ -17,7 +18,17 @@ import {
   getStatusColor,
   getStatusLabel,
 } from "@/utils/helpers";
-import { AlertCircle, Edit, Eye, Plus, Search, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  Calendar,
+  Clock,
+  Edit,
+  Eye,
+  Plus,
+  Search,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -37,9 +48,14 @@ export default function Vagues() {
   const [enseignants, setEnseignants] = useState([]);
   const [jours, setJours] = useState([]);
   const [horaires, setHoraires] = useState([]);
+  const [inscrits, setInscrits] = useState([]);
+
+  
 
   const [loading, setLoading] = useState(true);
   const [tableLoading, setTableLoading] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [formLoading, setFormLoading] = useState(false); // AJOUTÉ
   const [showForm, setShowForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedVague, setSelectedVague] = useState(null);
@@ -79,15 +95,21 @@ export default function Vagues() {
   ]);
   const [formErrors, setFormErrors] = useState({});
 
-  // Chargement des données
+  // Chargement des données initiales
   const fetchData = useCallback(async () => {
     setTableLoading(true);
     try {
       const params = {
-        ...filters,
         page: pagination.page,
         limit: pagination.limit,
       };
+
+      // Ajouter les filtres seulement s'ils sont définis
+      if (filters.statut) params.statut = filters.statut;
+      if (filters.niveau_id) params.niveau_id = filters.niveau_id;
+      if (filters.enseignant_id) params.enseignant_id = filters.enseignant_id;
+      if (filters.salle_id) params.salle_id = filters.salle_id;
+      if (filters.search) params.search = filters.search;
 
       const [
         vaguesRes,
@@ -105,10 +127,9 @@ export default function Vagues() {
         horaireService.getAll({ actif: true }),
       ]);
 
-      // Gestion de la réponse paginée
+      // Gestion de la réponse paginée pour les vagues
       if (vaguesRes.data) {
         if (vaguesRes.data.vagues) {
-          // Réponse paginée
           setVagues(vaguesRes.data.vagues || []);
           setPagination((prev) => ({
             ...prev,
@@ -116,28 +137,68 @@ export default function Vagues() {
             totalPages: vaguesRes.data.pagination?.totalPages || 0,
           }));
         } else if (vaguesRes.data.liste) {
-          // Réponse simple avec liste
           setVagues(vaguesRes.data.liste || []);
+          setPagination((prev) => ({
+            ...prev,
+            total: vaguesRes.data.liste.length,
+            totalPages: 1,
+          }));
         } else if (Array.isArray(vaguesRes.data)) {
-          // Réponse directe en tableau
           setVagues(vaguesRes.data);
+          setPagination((prev) => ({
+            ...prev,
+            total: vaguesRes.data.length,
+            totalPages: 1,
+          }));
         }
       }
 
-      setNiveaux(niveauxRes.data || []);
-      setSalles(sallesRes.data || []);
+      // Gestion des niveaux
+      if (niveauxRes.data) {
+        const niveauxData = Array.isArray(niveauxRes.data)
+          ? niveauxRes.data
+          : niveauxRes.data.liste || niveauxRes.data.niveaux || [];
+        setNiveaux(niveauxData);
+      }
 
-      // Extraction des utilisateurs selon la structure de réponse
-      const usersData = enseignantsRes.data?.users || enseignantsRes.data || [];
-      setEnseignants(usersData);
+      // Gestion des salles
+      if (sallesRes.data) {
+        const sallesData = Array.isArray(sallesRes.data)
+          ? sallesRes.data
+          : sallesRes.data.liste || sallesRes.data.salles || [];
+        setSalles(sallesData);
+      }
 
-      setJours(joursRes.data || []);
-      setHoraires(horairesRes.data || []);
+      // Gestion des enseignants
+      if (enseignantsRes.data) {
+        const enseignantsData =
+          enseignantsRes.data.users ||
+          enseignantsRes.data.liste ||
+          (Array.isArray(enseignantsRes.data) ? enseignantsRes.data : []);
+        setEnseignants(enseignantsData);
+      }
 
-      console.log(joursRes.data, horairesRes.data);
+      // Gestion des jours
+      if (joursRes.data) {
+        const joursData = Array.isArray(joursRes.data)
+          ? joursRes.data
+          : joursRes.data.liste || joursRes.data.jours || [];
+        setJours(joursData);
+      }
+
+      // Gestion des horaires
+      if (horairesRes.data) {
+        const horairesData = Array.isArray(horairesRes.data)
+          ? horairesRes.data
+          : horairesRes.data.liste || horairesRes.data.horaires || [];
+        setHoraires(horairesData);
+      }
     } catch (error) {
       console.error("Erreur chargement données:", error);
-      toast.error("Erreur lors de la récupération des données");
+      toast.error(
+        error.response?.data?.message ||
+          "Erreur lors de la récupération des données",
+      );
     } finally {
       setLoading(false);
       setTableLoading(false);
@@ -204,6 +265,7 @@ export default function Vagues() {
     return Object.keys(errors).length === 0;
   };
 
+
   // Soumission du formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -249,37 +311,84 @@ export default function Vagues() {
     }
   };
 
-  // Ouverture du formulaire
-  const openForm = (vague = null) => {
+  // Ouverture du formulaire - VERSION CORRIGÉE
+  const openForm = async (vague = null) => {
     if (vague) {
       setIsEditing(true);
       setSelectedVague(vague);
-      setFormData({
-        nom: vague.nom,
-        niveau_id: vague.niveau_id?.toString() || "",
-        enseignant_id: vague.enseignant_id?.toString() || "",
-        salle_id: vague.salle_id?.toString() || "",
-        date_debut: vague.date_debut,
-        date_fin: vague.date_fin,
-        statut: vague.statut || "planifie",
-      });
+      setShowForm(true); // Ouvrir le modal immédiatement
+      setFormLoading(true); // Activer le loading
 
-      // Charger les horaires de la vague
-      if (
-        vague.horaires &&
-        Array.isArray(vague.horaires) &&
-        vague.horaires.length > 0
-      ) {
-        setSelectedSlots(
-          vague.horaires.map((h) => ({
-            jour_id: h.jour_id.toString(),
-            horaire_id: h.horaire_id.toString(),
-          })),
-        );
-      } else {
-        setSelectedSlots([{ jour_id: "", horaire_id: "" }]);
+      try {
+        // Charger les détails complets de la vague
+        const response = await vagueService.getById(vague.id);
+        const vagueDetails = response.data;
+
+        // Remplir le formulaire avec les données
+        setFormData({
+          nom: vagueDetails.nom || "",
+          niveau_id: vagueDetails.niveau_id?.toString() || "",
+          enseignant_id: vagueDetails.enseignant_id?.toString() || "",
+          salle_id: vagueDetails.salle_id?.toString() || "",
+          date_debut: vagueDetails.date_debut || "",
+          date_fin: vagueDetails.date_fin || "",
+          statut: vagueDetails.statut || "planifie",
+        });
+
+        // Charger les horaires
+        if (
+          vagueDetails.horaires &&
+          Array.isArray(vagueDetails.horaires) &&
+          vagueDetails.horaires.length > 0
+        ) {
+          setSelectedSlots(
+            vagueDetails.horaires.map((h) => ({
+              jour_id: h.jour_id?.toString() || "",
+              horaire_id: h.horaire_id?.toString() || "",
+            })),
+          );
+        } else {
+          setSelectedSlots([{ jour_id: "", horaire_id: "" }]);
+        }
+
+        setFormErrors({});
+      } catch (error) {
+        console.error("Erreur chargement vague pour édition:", error);
+        toast.error("Erreur lors du chargement des données de la vague");
+
+        // Fallback sur les données de base
+        setFormData({
+          nom: vague.nom || "",
+          niveau_id: vague.niveau_id?.toString() || "",
+          enseignant_id: vague.enseignant_id?.toString() || "",
+          salle_id: vague.salle_id?.toString() || "",
+          date_debut: vague.date_debut || "",
+          date_fin: vague.date_fin || "",
+          statut: vague.statut || "planifie",
+        });
+
+        // Essayer avec les horaires de base si disponibles
+        if (
+          vague.horaires &&
+          Array.isArray(vague.horaires) &&
+          vague.horaires.length > 0
+        ) {
+          setSelectedSlots(
+            vague.horaires.map((h) => ({
+              jour_id: h.jour_id?.toString() || "",
+              horaire_id: h.horaire_id?.toString() || "",
+            })),
+          );
+        } else {
+          setSelectedSlots([{ jour_id: "", horaire_id: "" }]);
+        }
+
+        setFormErrors({});
+      } finally {
+        setFormLoading(false); // Désactiver le loading
       }
     } else {
+      // Mode création
       setIsEditing(false);
       setSelectedVague(null);
       setFormData({
@@ -292,10 +401,9 @@ export default function Vagues() {
         statut: "planifie",
       });
       setSelectedSlots([{ jour_id: "", horaire_id: "" }]);
+      setFormErrors({});
+      setShowForm(true);
     }
-
-    setFormErrors({});
-    setShowForm(true);
   };
 
   // Fermeture du formulaire
@@ -303,6 +411,7 @@ export default function Vagues() {
     setShowForm(false);
     setIsEditing(false);
     setSelectedVague(null);
+    setFormLoading(false);
     setFormData({
       nom: "",
       niveau_id: "",
@@ -345,13 +454,43 @@ export default function Vagues() {
 
   // Affichage des détails
   const viewDetails = async (vague) => {
+    setDetailsLoading(true);
+    setShowDetails(true); // Ouvrir le modal immédiatement
+    
     try {
-      const response = await vagueService.getById(vague.id);
-      setSelectedVague(response.data);
-      setShowDetails(true);
+      // Charger les détails de la vague
+      const vagueResponse = await vagueService.getById(vague.id);
+      const vagueDetails = vagueResponse.data;
+
+      // Charger la liste des inscrits
+      let inscritsList = [];
+      if (inscriptionService && inscriptionService.getAll) {
+        try {
+          const inscritsResponse = await inscriptionService.getAll({
+            vague_id: vague.id,
+          });
+
+          // Gérer différents formats de réponse
+          if (inscritsResponse.data) {
+            inscritsList = Array.isArray(inscritsResponse.data)
+              ? inscritsResponse.data
+              : inscritsResponse.data.inscriptions ||
+                inscritsResponse.data.liste ||
+                [];
+          }
+        } catch (error) {
+          console.error("Erreur chargement inscrits:", error);
+        }
+      }
+
+      setSelectedVague(vagueDetails);
+      setInscrits(inscritsList);
     } catch (error) {
       console.error("Erreur chargement détails:", error);
       toast.error("Erreur lors du chargement des détails");
+      setShowDetails(false);
+    } finally {
+      setDetailsLoading(false);
     }
   };
 
@@ -367,7 +506,7 @@ export default function Vagues() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Gestion des Vagues</h1>
-        <Button onClick={() => openForm()} variant="primary">
+        <Button onClick={() => openForm()} variant="primary" className="cursor-pointer">
           <Plus className="w-4 h-4 mr-2" />
           Nouvelle Vague
         </Button>
@@ -375,45 +514,37 @@ export default function Vagues() {
 
       {/* Filtres */}
       <div className="bg-white p-4 rounded-lg shadow-sm border space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Input
             placeholder="Rechercher une vague..."
             value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, search: e.target.value });
+              setPagination((prev) => ({ ...prev, page: 1 }));
+            }}
             icon={<Search className="w-4 h-4" />}
           />
 
           <Select
             placeholder="Statut"
             value={filters.statut}
-            onChange={(e) => setFilters({ ...filters, statut: e.target.value })}
+            onChange={(e) => {
+              setFilters({ ...filters, statut: e.target.value });
+              setPagination((prev) => ({ ...prev, page: 1 }));
+            }}
             options={STATUS_OPTIONS}
           />
 
           <Select
             placeholder="Niveau"
             value={filters.niveau_id}
-            onChange={(e) =>
-              setFilters({ ...filters, niveau_id: e.target.value })
-            }
+            onChange={(e) => {
+              setFilters({ ...filters, niveau_id: e.target.value });
+              setPagination((prev) => ({ ...prev, page: 1 }));
+            }}
             options={[
               { value: "", label: "Tous les niveaux" },
               ...niveaux.map((n) => ({ value: n.id.toString(), label: n.nom })),
-            ]}
-          />
-
-          <Select
-            placeholder="Enseignant"
-            value={filters.enseignant_id}
-            onChange={(e) =>
-              setFilters({ ...filters, enseignant_id: e.target.value })
-            }
-            options={[
-              { value: "", label: "Tous les enseignants" },
-              ...enseignants.map((e) => ({
-                value: e.id.toString(),
-                label: `${e.prenom} ${e.nom}`,
-              })),
             ]}
           />
         </div>
@@ -447,9 +578,6 @@ export default function Vagues() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Période
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Planning
-                    </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Statut
                     </th>
@@ -462,7 +590,7 @@ export default function Vagues() {
                   {vagues.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={9}
+                        colSpan={8}
                         className="px-6 py-12 text-center text-gray-500"
                       >
                         <AlertCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
@@ -470,7 +598,12 @@ export default function Vagues() {
                           Aucune vague trouvée
                         </p>
                         <p className="text-sm mt-1">
-                          Créez votre première vague pour commencer
+                          {filters.search ||
+                          filters.statut ||
+                          filters.niveau_id ||
+                          filters.enseignant_id
+                            ? "Essayez de modifier vos filtres"
+                            : "Créez votre première vague pour commencer"}
                         </p>
                       </td>
                     </tr>
@@ -484,9 +617,9 @@ export default function Vagues() {
                           <div className="font-medium text-gray-900">
                             {vague.nom}
                           </div>
-                          <div className="text-sm text-gray-500">
+                          {/* <div className="text-sm text-gray-500">
                             {vague.horaires?.length || 0} créneaux
-                          </div>
+                          </div> */}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="text-sm font-medium text-gray-900">
@@ -495,8 +628,9 @@ export default function Vagues() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="text-sm text-gray-900">
-                            {vague.enseignant_prenom}{" "}
-                            {vague.enseignant_nom || "Non assigné"}
+                            {vague.enseignant_prenom && vague.enseignant_nom
+                              ? `${vague.enseignant_prenom} ${vague.enseignant_nom}`
+                              : "Non assigné"}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -538,19 +672,6 @@ export default function Vagues() {
                             au {formatShortDate(vague.date_fin)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex flex-wrap gap-1">
-                            {vague.horaires?.map((h, i) => (
-                              <Badge
-                                key={i}
-                                variant="outline"
-                                className="text-[10px]"
-                              >
-                                {h.jour_nom} : {h.heure_debut?.substring(0, 5)}
-                              </Badge>
-                            ))}
-                          </div>
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <Badge variant={getStatusColor(vague.statut)}>
                             {getStatusLabel(vague.statut)}
@@ -563,6 +684,7 @@ export default function Vagues() {
                               size="sm"
                               onClick={() => viewDetails(vague)}
                               title="Voir détails"
+                              className="cursor-pointer"
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
@@ -571,15 +693,17 @@ export default function Vagues() {
                               size="sm"
                               onClick={() => openForm(vague)}
                               title="Modifier"
+                              className="cursor-pointer"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-red-600 hover:text-red-800"
+                              className="text-red-600 hover:text-red-800 cursor-pointer"
                               onClick={() => handleDelete(vague)}
                               title="Supprimer"
+                              disabled={vague.nb_inscrits > 0}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -604,7 +728,7 @@ export default function Vagues() {
                     variant="outline"
                     size="sm"
                     onClick={() => handlePageChange(pagination.page - 1)}
-                    disabled={pagination.page === 1}
+                    disabled={pagination.page === 1} className="cursor-pointer"
                   >
                     Précédent
                   </Button>
@@ -613,6 +737,7 @@ export default function Vagues() {
                     size="sm"
                     onClick={() => handlePageChange(pagination.page + 1)}
                     disabled={pagination.page === pagination.totalPages}
+                    className="cursor-pointer"
                   >
                     Suivant
                   </Button>
@@ -630,303 +755,389 @@ export default function Vagues() {
         title={isEditing ? "Modifier la vague" : "Créer une vague"}
         size="xl"
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Informations générales */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Informations générales
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Nom de la vague"
-                value={formData.nom}
-                onChange={(e) =>
-                  setFormData({ ...formData, nom: e.target.value })
-                }
-                error={formErrors.nom}
-                placeholder="Ex: Vague L1 - Janvier 2026"
-                required
-              />
-
-              <Select
-                label="Niveau"
-                value={formData.niveau_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, niveau_id: e.target.value })
-                }
-                options={niveaux.map((n) => ({
-                  value: n.id.toString(),
-                  label: `${n.code} - ${n.nom}`,
-                }))}
-                error={formErrors.niveau_id}
-                placeholder="Sélectionner un niveau"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select
-                label="Salle"
-                value={formData.salle_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, salle_id: e.target.value })
-                }
-                options={[
-                  { value: "", label: "Aucune salle" },
-                  ...salles.map((s) => ({
-                    value: s.id.toString(),
-                    label: `${s.nom} (Cap: ${s.capacite})`,
-                  })),
-                ]}
-                placeholder="Sélectionner une salle"
-              />
-
-              <Select
-                label="Enseignant"
-                value={formData.enseignant_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, enseignant_id: e.target.value })
-                }
-                options={[
-                  { value: "", label: "Aucun enseignant" },
-                  ...enseignants.map((e) => ({
-                    value: e.id.toString(),
-                    label: `${e.prenom} ${e.nom}`,
-                  })),
-                ]}
-                placeholder="Sélectionner un enseignant"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input
-                label="Date de début"
-                type="date"
-                value={formData.date_debut}
-                onChange={(e) =>
-                  setFormData({ ...formData, date_debut: e.target.value })
-                }
-                error={formErrors.date_debut}
-                required
-              />
-
-              <Input
-                label="Date de fin"
-                type="date"
-                value={formData.date_fin}
-                onChange={(e) =>
-                  setFormData({ ...formData, date_fin: e.target.value })
-                }
-                error={formErrors.date_fin}
-                required
-              />
-
-              <Select
-                label="Statut"
-                value={formData.statut}
-                onChange={(e) =>
-                  setFormData({ ...formData, statut: e.target.value })
-                }
-                options={STATUS_OPTIONS.filter((opt) => opt.value !== "")}
-                required
-              />
-            </div>
+        {formLoading ? (
+          <div className="py-12">
+            <Loading message="Chargement des données..." />
           </div>
-
-          {/* Emploi du temps - Mode Liste uniquement */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Informations générales */}
+            <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">
-                Emploi du temps
+                Informations générales
               </h3>
-              {formErrors.horaires && (
-                <span className="text-sm text-red-600">
-                  {formErrors.horaires}
-                </span>
-              )}
-            </div>
 
-            <p className="text-sm text-gray-600">
-              Ajoutez les créneaux horaires un par un
-            </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Nom de la vague"
+                  value={formData.nom}
+                  onChange={(e) =>
+                    setFormData({ ...formData, nom: e.target.value })
+                  }
+                  error={formErrors.nom}
+                  placeholder="Ex: Vague L1 - Janvier 2026"
+                  required
+                />
 
-            <div className="border rounded-lg p-4 bg-gray-50">
-              <div className="space-y-3">
-                {selectedSlots.map((slot, index) => (
-                  <div
-                    key={index}
-                    className="flex gap-3 items-end bg-white p-3 rounded-lg border"
-                  >
-                    <div className="flex-1">
-                      <Select
-                        label="Jour"
-                        value={slot.jour_id}
-                        onChange={(e) =>
-                          updateSlot(index, "jour_id", e.target.value)
-                        }
-                        options={[
-                          { value: "", label: "Sélectionner un jour" },
-                          ...jours.map((j) => ({
-                            value: j.id.toString(),
-                            label: j.nom,
-                          })),
-                        ]}
-                        error={
-                          !slot.jour_id && formErrors.horaires
-                            ? "Jour requis"
-                            : undefined
-                        }
-                        required
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <Select
-                        label="Horaire"
-                        value={slot.horaire_id}
-                        onChange={(e) =>
-                          updateSlot(index, "horaire_id", e.target.value)
-                        }
-                        options={[
-                          { value: "", label: "Sélectionner un horaire" },
-                          ...horaires.map((h) => ({
-                            value: h.id.toString(),
-                            label: `${h.heure_debut?.substring(0, 5)} - ${h.heure_fin?.substring(0, 5)} ${h.libelle ? `(${h.libelle})` : ""}`,
-                          })),
-                        ]}
-                        error={
-                          !slot.horaire_id && formErrors.horaires
-                            ? "Horaire requis"
-                            : undefined
-                        }
-                        required
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeSlot(index)}
-                      className="p-2 text-red-500 hover:text-red-700 mb-1"
-                      disabled={selectedSlots.length <= 1}
-                      title="Supprimer ce créneau"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={addSlot}
-                  className="w-full"
-                >
-                  <Plus className="w-4 h-4 mr-2" /> Ajouter un créneau
-                </Button>
+                <Select
+                  label="Niveau"
+                  value={formData.niveau_id}
+                  onChange={(e) =>
+                    setFormData({ ...formData, niveau_id: e.target.value })
+                  }
+                  options={niveaux.map((n) => ({
+                    value: n.id.toString(),
+                    label: `${n.code} - ${n.nom}`,
+                  }))}
+                  error={formErrors.niveau_id}
+                  placeholder="Sélectionner un niveau"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Select
+                  label="Salle"
+                  value={formData.salle_id}
+                  onChange={(e) =>
+                    setFormData({ ...formData, salle_id: e.target.value })
+                  }
+                  options={[
+                    { value: "", label: "Aucune salle" },
+                    ...salles.map((s) => ({
+                      value: s.id.toString(),
+                      label: `${s.nom} (Cap: ${s.capacite})`,
+                    })),
+                  ]}
+                  placeholder="Sélectionner une salle"
+                />
+
+                <Select
+                  label="Enseignant"
+                  value={formData.enseignant_id}
+                  onChange={(e) =>
+                    setFormData({ ...formData, enseignant_id: e.target.value })
+                  }
+                  options={[
+                    { value: "", label: "Aucun enseignant" },
+                    ...enseignants.map((e) => ({
+                      value: e.id.toString(),
+                      label: `${e.prenom} ${e.nom}`,
+                    })),
+                  ]}
+                  placeholder="Sélectionner un enseignant"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Input
+                  label="Date de début"
+                  type="date"
+                  value={formData.date_debut}
+                  onChange={(e) =>
+                    setFormData({ ...formData, date_debut: e.target.value })
+                  }
+                  error={formErrors.date_debut}
+                  required
+                />
+
+                <Input
+                  label="Date de fin"
+                  type="date"
+                  value={formData.date_fin}
+                  onChange={(e) =>
+                    setFormData({ ...formData, date_fin: e.target.value })
+                  }
+                  error={formErrors.date_fin}
+                  required
+                />
+
+                <Select
+                  label="Statut"
+                  value={formData.statut}
+                  onChange={(e) =>
+                    setFormData({ ...formData, statut: e.target.value })
+                  }
+                  options={STATUS_OPTIONS.filter((opt) => opt.value !== "")}
+                  required
+                />
               </div>
             </div>
 
-            <div className="text-sm text-gray-600">
-              {getValidSlots().length} créneau(x) configuré(s)
-            </div>
-          </div>
+            {/* Emploi du temps */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Emploi du temps
+                </h3>
+                {formErrors.horaires && (
+                  <span className="text-sm text-red-600">
+                    {formErrors.horaires}
+                  </span>
+                )}
+              </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-6 border-t">
-            <Button type="button" variant="outline" onClick={closeForm}>
-              Annuler
-            </Button>
-            <Button type="submit" variant="primary">
-              {isEditing ? "Enregistrer les modifications" : "Créer la vague"}
-            </Button>
-          </div>
-        </form>
+              <p className="text-sm text-gray-600">
+                Ajoutez les créneaux horaires un par un
+              </p>
+
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <div className="space-y-3">
+                  {selectedSlots.map((slot, index) => (
+                    <div
+                      key={index}
+                      className="flex gap-3 items-end bg-white p-3 rounded-lg border"
+                    >
+                      <div className="flex-1">
+                        <Select
+                          label="Jour"
+                          value={slot.jour_id}
+                          onChange={(e) =>
+                            updateSlot(index, "jour_id", e.target.value)
+                          }
+                          options={[
+                            { value: "", label: "Sélectionner un jour" },
+                            ...jours.map((j) => ({
+                              value: j.id.toString(),
+                              label: j.nom,
+                            })),
+                          ]}
+                          error={
+                            !slot.jour_id && formErrors.horaires
+                              ? "Jour requis"
+                              : undefined
+                          }
+                          required
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Select
+                          label="Horaire"
+                          value={slot.horaire_id}
+                          onChange={(e) =>
+                            updateSlot(index, "horaire_id", e.target.value)
+                          }
+                          options={[
+                            { value: "", label: "Sélectionner un horaire" },
+                            ...horaires.map((h) => ({
+                              value: h.id.toString(),
+                              label: `${h.heure_debut?.substring(0, 5)} - ${h.heure_fin?.substring(0, 5)} ${h.libelle ? `(${h.libelle})` : ""}`,
+                            })),
+                          ]}
+                          error={
+                            !slot.horaire_id && formErrors.horaires
+                              ? "Horaire requis"
+                              : undefined
+                          }
+                          required
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeSlot(index)}
+                        className="p-2 text-red-500 hover:text-red-700 mb-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        disabled={selectedSlots.length <= 1}
+                        title="Supprimer ce créneau"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addSlot}
+                    className="w-full cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 mr-2" /> Ajouter un créneau
+                  </Button>
+                </div>
+              </div>
+
+              <div className="text-sm text-gray-600">
+                {getValidSlots().length} créneau(x) configuré(s)
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-6 border-t">
+              <Button type="button" variant="outline" onClick={closeForm} className="cursor-pointer">
+                Annuler
+              </Button>
+              <Button type="submit" variant="primary" className="cursor-pointer">
+                {isEditing ? "Enregistrer les modifications" : "Créer la vague"}
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       {/* Modal Détails */}
+      {/* Modal Détails */}
       <Modal
         isOpen={showDetails}
-        onClose={() => setShowDetails(false)}
-        title="Détails de la vague"
-        size="lg"
+        onClose={() => {
+          setShowDetails(false);
+          setInscrits([]);
+        }}
+        title={
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-linear-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg shadow-blue-500/20">
+              <Eye className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl font-bold text-gray-900">
+              Détails de la vague
+            </span>
+          </div>
+        }
+        size="xl"
+        className="backdrop-blur-sm"
       >
-        {selectedVague && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <p className="text-sm text-gray-500">Nom</p>
-                <p className="font-medium text-gray-900">{selectedVague.nom}</p>
+        {detailsLoading ? (
+          <div className="py-16">
+            <Loading message="Chargement des détails..." />
+          </div>
+        ) : selectedVague ? (
+          <div className="space-y-8">
+            {/* Informations générales */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                <div className="p-1.5 bg-blue-50 rounded-lg">
+                  <Users className="w-4 h-4 text-blue-600" />
+                </div>
+                <h3 className="text-base font-semibold text-gray-900">
+                  Informations générales
+                </h3>
               </div>
-              <div>
-                <p className="text-sm text-gray-500">Niveau</p>
-                <p className="font-medium text-gray-900">
-                  {selectedVague.niveau_code} - {selectedVague.niveau_nom}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Enseignant</p>
-                <p className="font-medium text-gray-900">
-                  {selectedVague.enseignant_prenom}{" "}
-                  {selectedVague.enseignant_nom || "Non assigné"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Salle</p>
-                <p className="font-medium text-gray-900">
-                  {selectedVague.salle_nom || "Non assignée"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Période</p>
-                <p className="font-medium text-gray-900">
-                  {formatShortDate(selectedVague.date_debut)} au{" "}
-                  {formatShortDate(selectedVague.date_fin)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Remplissage</p>
-                <p className="font-medium text-gray-900">
-                  {selectedVague.nb_inscrits || 0} /{" "}
-                  {selectedVague.capacite_max || "∞"} inscrits
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Statut</p>
-                <Badge variant={getStatusColor(selectedVague.statut)}>
-                  {getStatusLabel(selectedVague.statut)}
-                </Badge>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gray-50 p-4 rounded-xl">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    Nom
+                  </p>
+                  <p className="font-semibold text-gray-900">
+                    {selectedVague.nom}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-xl">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    Niveau
+                  </p>
+                  <p className="font-semibold text-gray-900">
+                    {selectedVague.niveau_code} - {selectedVague.niveau_nom}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-xl">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    Enseignant
+                  </p>
+                  <p className="font-semibold text-gray-900">
+                    {selectedVague.enseignant_prenom &&
+                    selectedVague.enseignant_nom
+                      ? `${selectedVague.enseignant_prenom} ${selectedVague.enseignant_nom}`
+                      : "Non assigné"}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-xl">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    Salle
+                  </p>
+                  <p className="font-semibold text-gray-900">
+                    {selectedVague.salle_nom || "Non assignée"}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-xl">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    Période
+                  </p>
+                  <p className="font-semibold text-gray-900">
+                    {formatShortDate(selectedVague.date_debut)} →{" "}
+                    {formatShortDate(selectedVague.date_fin)}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-xl">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    Remplissage
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold text-gray-900">
+                      {selectedVague.nb_inscrits || 0} /{" "}
+                      {selectedVague.capacite_max || "∞"}
+                    </span>
+                    {selectedVague.capacite_max && (
+                      <div className="flex-1 max-w-25">
+                        <div className="bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-linear-to-r from-blue-500 to-blue-600 h-2 rounded-full"
+                            style={{
+                              width: `${Math.min(
+                                ((selectedVague.nb_inscrits || 0) /
+                                  selectedVague.capacite_max) *
+                                  100,
+                                100
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-xl md:col-span-2">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    Statut
+                  </p>
+                  <Badge
+                    variant={getStatusColor(selectedVague.statut)}
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium"
+                  >
+                    {getStatusLabel(selectedVague.statut)}
+                  </Badge>
+                </div>
               </div>
             </div>
 
+            {/* Emploi du temps */}
             {selectedVague.horaires && selectedVague.horaires.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-3">
-                  Emploi du temps
-                </h4>
-                <div className="space-y-2">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                  <div className="p-1.5 bg-blue-50 rounded-lg">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <h3 className="text-base font-semibold text-gray-900">
+                    Emploi du temps
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {selectedVague.horaires.map((horaire, index) => (
                     <div
                       key={index}
-                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                      className="flex items-center gap-3 p-4 bg-linear-to-r from-gray-50 to-white rounded-xl border border-gray-100"
                     >
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <Calendar className="w-4 h-4 text-blue-600" />
+                      </div>
                       <div className="flex-1">
-                        <span className="font-medium text-gray-900">
+                        <p className="font-medium text-gray-900">
                           {horaire.jour_nom}
-                        </span>
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {horaire.heure_debut?.substring(0, 5)} -{" "}
+                          {horaire.heure_fin?.substring(0, 5)}
+                          {horaire.libelle && (
+                            <span className="ml-2 text-xs text-gray-500">
+                              ({horaire.libelle})
+                            </span>
+                          )}
+                        </p>
                       </div>
-                      <div className="text-sm text-gray-600">
-                        {horaire.heure_debut} - {horaire.heure_fin}
-                      </div>
-                      {horaire.libelle && (
-                        <div className="text-xs text-gray-500">
-                          ({horaire.libelle})
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
           </div>
-        )}
+        ) : null}
       </Modal>
     </div>
   );
