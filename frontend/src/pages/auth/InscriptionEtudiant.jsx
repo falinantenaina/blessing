@@ -392,7 +392,7 @@ const InscriptionEtudiant = () => {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#0a3d5c]"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#0a3d5c] cursor-pointer"
                       >
                         {showPassword ? (
                           <EyeOff size={18} />
@@ -411,7 +411,7 @@ const InscriptionEtudiant = () => {
                       type="button"
                       onClick={goToNextStep}
                       disabled={!isStep1Complete}
-                      className="group px-6 py-3 bg-linear-to-r from-[#0a3d5c] to-[#0f5a8a] hover:from-[#08324a] hover:to-[#0a3d5c] text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="group px-6 py-3 bg-linear-to-r from-[#0a3d5c] to-[#0f5a8a] hover:from-[#08324a] hover:to-[#0a3d5c] text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
                     >
                       Continuer
                       <ArrowRight
@@ -442,10 +442,10 @@ const InscriptionEtudiant = () => {
                           target: { name: "mode_cours", value: "salle" },
                         })
                       }
-                      className={`relative p-6 rounded-xl border-2 transition-all ${
+                      className={`relative p-6 rounded-xl border-2 transition-all  ${
                         modeCours === "salle"
-                          ? "border-[#0a3d5c] bg-[#0a3d5c]/5 shadow-lg"
-                          : "border-gray-200 hover:border-gray-300"
+                          ? "border-[#0a3d5c] bg-[#0a3d5c]/5 shadow-lg "
+                          : "border-gray-200 hover:border-gray-300 cursor-pointer"
                       }`}
                     >
                       {modeCours === "salle" && (
@@ -475,7 +475,7 @@ const InscriptionEtudiant = () => {
                       className={`relative p-6 rounded-xl border-2 transition-all ${
                         modeCours === "ligne"
                           ? "border-[#0a3d5c] bg-[#0a3d5c]/5 shadow-lg"
-                          : "border-gray-200 hover:border-gray-300"
+                          : "border-gray-200 hover:border-gray-300 cursor-pointer"
                       }`}
                     >
                       {modeCours === "ligne" && (
@@ -500,7 +500,7 @@ const InscriptionEtudiant = () => {
                     <button
                       type="button"
                       onClick={goToPreviousStep}
-                      className="group px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all flex items-center gap-2"
+                      className="group px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all flex items-center gap-2 cursor-pointer"
                     >
                       <ArrowLeft
                         size={18}
@@ -512,7 +512,7 @@ const InscriptionEtudiant = () => {
                       <button
                         type="submit"
                         disabled={!isStep2Complete || isLoading}
-                        className="px-6 py-3 bg-linear-to-r from-[#0a3d5c] to-[#0f5a8a] hover:from-[#08324a] hover:to-[#0a3d5c] text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="px-6 py-3 bg-linear-to-r from-[#0a3d5c] to-[#0f5a8a] hover:from-[#08324a] hover:to-[#0a3d5c] text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
                       >
                         {isLoading ? (
                           <>
@@ -531,7 +531,7 @@ const InscriptionEtudiant = () => {
                         type="button"
                         onClick={goToNextStep}
                         disabled={!isStep2Complete}
-                        className="group px-6 py-3 bg-linear-to-r from-[#0a3d5c] to-[#0f5a8a] hover:from-[#08324a] hover:to-[#0a3d5c] text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="group px-6 py-3 bg-linear-to-r from-[#0a3d5c] to-[#0f5a8a] hover:from-[#08324a] hover:to-[#0a3d5c] text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
                       >
                         Continuer
                         <ArrowRight
@@ -635,7 +635,7 @@ const InscriptionEtudiant = () => {
                     <button
                       type="button"
                       onClick={goToPreviousStep}
-                      className="group px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all flex items-center gap-2"
+                      className="group px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all flex items-center gap-2 cursor-pointer"
                     >
                       <ArrowLeft
                         size={18}
@@ -646,7 +646,7 @@ const InscriptionEtudiant = () => {
                     <button
                       type="submit"
                       disabled={!isStep3Complete || isLoading}
-                      className="px-6 py-3 bg-linear-to-r from-[#0a3d5c] to-[#0f5a8a] hover:from-[#08324a] hover:to-[#0a3d5c] text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="px-6 py-3 bg-linear-to-r from-[#0a3d5c] to-[#0f5a8a] hover:from-[#08324a] hover:to-[#0a3d5c] text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
                     >
                       {isLoading ? (
                         <>
