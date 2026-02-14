@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary-50: #eff6ff;
+  /* Ta palette primary (bleu) – elle génère bg-primary-500, text-primary-700, etc. */
+  --color-primary-50:  #eff6ff;
   --color-primary-100: #dbeafe;
   --color-primary-200: #bfdbfe;
   --color-primary-300: #93c5fd;
@@ -12,15 +13,20 @@
   --color-primary-800: #1e40af;
   --color-primary-900: #1e3a8a;
   --color-primary-950: #172554;
+
+  /* Optionnel : si tu veux aussi redéfinir d'autres tokens par défaut */
+  /* --color-gray-50:  #f9fafb;  etc. */
 }
 
 @layer base {
-  * {
+  *,
+  *::before,
+  *::after {
     @apply border-gray-200;
   }
 
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-gray-50 text-gray-900 antialiased;
   }
 }
 
@@ -29,8 +35,44 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* ───────────────────────────────────────────────
+   Animations personnalisées pour le multi-step form
+   ─────────────────────────────────────────────── */
+.step-wrapper {
+  position: absolute;
+  inset: 0;
+  transition: all 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Le cubic-bezier ci-dessus donne un léger "overshoot" naturel et agréable */
+}
+
+.step-active {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.step-prev {
+  opacity: 0;
+  transform: translateX(-40px) scale(0.96);
+  pointer-events: none;
+}
+
+.step-next {
+  opacity: 0;
+  transform: translateX(40px) scale(0.96);
+  pointer-events: none;
+}
+
+/* Optionnel : si tu veux une version plus douce / plus rapide */
+.step-wrapper.fast {
+  transition-duration: 0.4s;
+}
+
+.step-wrapper.smooth {
+  transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }

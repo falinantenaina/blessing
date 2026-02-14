@@ -23,7 +23,7 @@ router.use("/salles", salleRoutes);
 router.use("/vagues", vagueRoutes);
 router.use("/inscriptions", inscriptionRoutes);
 router.use("/niveaux", niveauRoutes);
-router.use("/finances", financeRoutes);
+router.use("/finance", financeRoutes);
 router.use("/reference", referenceRoutes);
 router.use("/horaires", horaireRoutes);
 router.use("/jours", jourRoutes);

@@ -63,7 +63,7 @@ class EtudiantModel {
     const offset = (page - 1) * limit;
 
     query += ' ORDER BY e.created_at DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
+    params.push(String(limit), String(offset));
 
     const [rows] = await pool.execute(query, params);
 
