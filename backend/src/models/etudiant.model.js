@@ -34,49 +34,113 @@ class EtudiantModel {
   // Obtenir tous les étudiants avec filtres
   static async findAll(filters = {}) {
     let query = `
-    SELECT e.*,
-           COUNT(DISTINCT i.id) as nb_inscriptions,
-           COUNT(DISTINCT CASE 
-             WHEN i.statut_inscription = 'actif' 
-             THEN i.id 
-           END) as nb_inscriptions_actives
+    SELECT 
+      e.id as etudiant_id,
+      e.nom,
+      e.prenom,
+      e.telephone,
+      e.email,
+
+      i.id as inscription_id,
+      i.statut_inscription,
+      i.date_inscription,
+      i.frais_inscription_paye,
+      i.remarques,
+
+      n.frais_inscription as montant_frais_inscription,
+
+      -- Livre cours
+      lc.prix as prix_livre_cours,
+      lc.statut_paiement as livre_cours_paye,
+      lc.statut_livraison as livre_cours_livre,
+
+      -- Livre exercices
+      le.prix as prix_livre_exercices,
+      le.statut_paiement as livre_exercices_paye,
+      le.statut_livraison as livre_exercices_livre,
+
+      -- Total payé
+      COALESCE((
+        SELECT SUM(p.montant)
+        FROM paiements p
+        WHERE p.inscription_id = i.id
+      ), 0) as montant_paye,
+
+      -- Total à payer
+      (n.frais_inscription 
+        + COALESCE(lc.prix,0) 
+        + COALESCE(le.prix,0)
+      ) as montant_total
+
     FROM etudiants e
-    LEFT JOIN inscriptions i ON e.id = i.etudiant_id
+    LEFT JOIN inscriptions i ON i.etudiant_id = e.id
+    LEFT JOIN vagues v ON i.vague_id = v.id
+    LEFT JOIN niveaux n ON v.niveau_id = n.id
+
+    LEFT JOIN livres lc 
+      ON lc.inscription_id = i.id 
+      AND lc.type_livre = 'cours'
+
+    LEFT JOIN livres le 
+      ON le.inscription_id = i.id 
+      AND le.type_livre = 'exercices'
+
     WHERE 1=1
   `;
 
     const params = [];
 
-    // Filtre actif
+    // ✅ Filtre actif
     if (filters.actif !== undefined) {
       query += " AND e.actif = ?";
       params.push(filters.actif);
     }
 
-    // Recherche
-    if (filters.search) {
-      query += " AND (e.nom LIKE ? OR e.prenom LIKE ? OR e.telephone LIKE ?)";
-      const searchTerm = `%${filters.search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
+    // ✅ Filtre statut inscription
+    if (filters.statut_inscription) {
+      query += " AND i.statut_inscription = ?";
+      params.push(filters.statut_inscription);
     }
 
-    query += " GROUP BY e.id";
+    // ✅ Recherche
+    if (filters.search) {
+      query += `
+      AND (
+        e.nom LIKE ? OR 
+        e.prenom LIKE ? OR 
+        e.telephone LIKE ?
+      )
+    `;
+      const s = `%${filters.search}%`;
+      params.push(s, s, s);
+    }
 
     // Pagination
     const page = parseInt(filters.page) || 1;
-    const limit = parseInt(filters.limit) || 10;
+    const limit = parseInt(filters.limit) || 20;
     const offset = (page - 1) * limit;
 
-    query += " ORDER BY e.created_at DESC LIMIT ? OFFSET ?";
+    query += `
+    ORDER BY e.nom ASC, e.prenom ASC
+    LIMIT ? OFFSET ?
+  `;
     params.push(limit, offset);
 
     // Exécution
     const [rows] = await pool.execute(query, params);
 
-    // Total count
+    // Ajouter montant restant
+    const data = rows.map((et) => ({
+      ...et,
+      montant_restant:
+        parseFloat(et.montant_total || 0) - parseFloat(et.montant_paye || 0),
+    }));
+
+    // Total count (pour pagination)
     let countQuery = `
-    SELECT COUNT(*) as total 
-    FROM etudiants e 
+    SELECT COUNT(*) as total
+    FROM inscriptions i
+    JOIN etudiants e ON e.id = i.etudiant_id
     WHERE 1=1
   `;
 
@@ -87,20 +151,30 @@ class EtudiantModel {
       countParams.push(filters.actif);
     }
 
+    if (filters.statut_inscription) {
+      countQuery += " AND i.statut_inscription = ?";
+      countParams.push(filters.statut_inscription);
+    }
+
     if (filters.search) {
-      countQuery +=
-        " AND (e.nom LIKE ? OR e.prenom LIKE ? OR e.telephone LIKE ?)";
-      const searchTerm = `%${filters.search}%`;
-      countParams.push(searchTerm, searchTerm, searchTerm);
+      countQuery += `
+      AND (
+        e.nom LIKE ? OR 
+        e.prenom LIKE ? OR 
+        e.telephone LIKE ?
+      )
+    `;
+      const s = `%${filters.search}%`;
+      countParams.push(s, s, s);
     }
 
     const [countResult] = await pool.execute(countQuery, countParams);
 
     return {
-      etudiants: rows,
-      total: countResult[0].total,
+      etudiants: data,
       page,
       limit,
+      total: countResult[0].total,
     };
   }
 

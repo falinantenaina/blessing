@@ -17,8 +17,6 @@ export const getEtudiants = asyncHandler(async (req, res) => {
 
   const result = await EtudiantModel.findAll(filters);
 
-  console.log(result);
-
   return paginatedResponse(
     res,
     result.etudiants,

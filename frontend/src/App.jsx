@@ -19,6 +19,7 @@ import Vagues from "./pages/Vagues";
 import Login from "./pages/Login";
 import RegisterSuccess from "./pages/RegisterSuccess";
 
+import Finances from "./pages/Finances";
 import { useAuthStore } from "./store";
 
 function App() {
@@ -151,6 +152,15 @@ function App() {
             element={
               <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
                 <Salles />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="finances"
+            element={
+              <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
+                <Finances />
               </ProtectedRoute>
             }
           />

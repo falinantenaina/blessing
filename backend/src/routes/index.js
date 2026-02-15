@@ -7,6 +7,7 @@ import inscriptionPubliqueRoutes from "./inscription-publique.route.js";
 import inscriptionRoutes from "./inscription.routes.js";
 import jourRoutes from "./jour.routes.js";
 import niveauRoutes from "./niveau.routes.js";
+import paiementRoutes from "./paiement.routes.js";
 import referenceRoutes from "./reference.routes.js";
 import salleRoutes from "./salle.routes.js";
 import userRoutes from "./user.routes.js";
@@ -28,6 +29,7 @@ router.use("/reference", referenceRoutes);
 router.use("/horaires", horaireRoutes);
 router.use("/jours", jourRoutes);
 router.use("/etudiants", etudiantRoutes);
+router.use("/paiements", paiementRoutes);
 
 // Route de test
 router.get("/health", (req, res) => {

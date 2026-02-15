@@ -13,6 +13,7 @@ import {
   LogOut,
   Settings,
   TruckIcon,
+  User,
   Users,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
@@ -27,6 +28,12 @@ export default function Sidebar({ onLogout }) {
       href: "/",
       icon: LayoutDashboard,
       roles: ["admin", "secretaire", "enseignant", "etudiant"],
+    },
+    {
+      name: "Liste Etudiants",
+      href: "/etudiants",
+      icon: User,
+      roles: ["admin", "secretaire"],
     },
     {
       name: "Inscriptions",
