@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Layout from "./components/layout/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
+
 import InscriptionEtudiant from "./pages/auth/InscriptionEtudiant";
 import Dashboard from "./pages/Dashboard";
 import EtudiantsPage from "./pages/Etudiants";
@@ -9,151 +10,154 @@ import GestionPaiementsEtudiant from "./pages/GestionPaiementEtudiant";
 import Horaires from "./pages/Horaires";
 import Inscriptions from "./pages/Inscription";
 import InscriptionsEnAttente from "./pages/Inscriptionsenattente";
-import Login from "./pages/Login";
 import Niveaux from "./pages/Niveaux";
 import Planning from "./pages/Planning";
-import RegisterSuccess from "./pages/RegisterSuccess";
 import Salles from "./pages/Salles";
 import Users from "./pages/Users";
 import Vagues from "./pages/Vagues";
+
+import Login from "./pages/Login";
+import RegisterSuccess from "./pages/RegisterSuccess";
+
 import { useAuthStore } from "./store";
 
 function App() {
   const { isAuthenticated } = useAuthStore();
 
-  /*   const router = createBrowserRouter([
-    {
-      path: "/inscription-etudiant",
-      element: <InscriptionEtudiant />,
-    },
-    {
-      path: "/login",
-      element: <Login />,
-    },
-    {
-      path: "/admin",
-      elemment: (
-        <ProtectedRoute>
-          <Layout />
-        </ProtectedRoute>
-      ),
-      children: [
-        {
-          path: "",
-          element: <Dashboard />,
-        },
-        {
-          path: "users",
-          element: ,
-        },
-      ],
-    },
-  ]); */
-
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public routes */}
-        <Route path="/inscription-etudiant" element={<InscriptionEtudiant />} />
+        {/* ===================== */}
+        {/* 🌍 Routes publiques */}
+        {/* ===================== */}
+        <Route path="/" element={<InscriptionEtudiant />} />
 
         <Route
           path="/login"
-          element={isAuthenticated ? <Navigate to="/" replace /> : <Login />}
+          element={
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
+          }
         />
 
         <Route path="/register-success" element={<RegisterSuccess />} />
 
-        {/* Protected routes */}
+        {/* ===================== */}
+        {/* 🔐 Routes protégées */}
+        {/* ===================== */}
         <Route
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <Layout />
             </ProtectedRoute>
           }
         >
-          <Route path="/" element={<Dashboard />} />
+          {/* Page dashboard principale */}
+          <Route index element={<Dashboard />} />
+
+          {/* 👤 Users */}
           <Route
-            path="/users"
+            path="users"
             element={
               <ProtectedRoute roles={["admin", "secretaire"]}>
                 <Users />
               </ProtectedRoute>
             }
           />
+
+          {/* 🌊 Vagues */}
           <Route
-            path="/vagues"
+            path="vagues"
             element={
               <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
                 <Vagues />
               </ProtectedRoute>
             }
           />
+
+          {/* ⏰ Horaires */}
           <Route
-            path="/horaires"
+            path="horaires"
             element={
               <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
                 <Horaires />
               </ProtectedRoute>
             }
           />
+
+          {/* 🎓 Étudiants */}
           <Route
-            path="/etudiants"
+            path="etudiants"
             element={
               <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
                 <EtudiantsPage />
               </ProtectedRoute>
             }
           />
+
+          {/* 📝 Inscriptions */}
           <Route
-            path="/inscription"
+            path="inscriptions"
             element={
               <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
                 <Inscriptions />
               </ProtectedRoute>
             }
           />
+
+          {/* 💰 Paiements */}
           <Route
-            path="/paiements"
+            path="paiements"
             element={
               <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
                 <GestionPaiementsEtudiant />
               </ProtectedRoute>
             }
           />
+
+          {/* 📦 Livraisons */}
           <Route
-            path="/livraisons"
+            path="livraisons"
             element={
               <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
                 <GestionLivraisons />
               </ProtectedRoute>
             }
           />
+
+          {/* 📚 Niveaux */}
           <Route
-            path="/niveaux"
+            path="niveaux"
             element={
               <ProtectedRoute roles={["admin", "secretaire"]}>
                 <Niveaux />
               </ProtectedRoute>
             }
           />
+
+          {/* 📅 Planning */}
           <Route
-            path="/planning"
+            path="planning"
             element={
               <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
                 <Planning />
               </ProtectedRoute>
             }
           />
+
+          {/* 🏫 Salles */}
           <Route
-            path="/salles"
+            path="salles"
             element={
               <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
                 <Salles />
               </ProtectedRoute>
             }
           />
+
+          {/* ⏳ Inscriptions en attente */}
           <Route
-            path="/inscriptions-en-attente"
+            path="inscriptions-en-attente"
             element={
               <ProtectedRoute roles={["admin", "secretaire"]}>
                 <InscriptionsEnAttente />
@@ -162,7 +166,9 @@ function App() {
           />
         </Route>
 
+        {/* ===================== */}
         {/* Catch all */}
+        {/* ===================== */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

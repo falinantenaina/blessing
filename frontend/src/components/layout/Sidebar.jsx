@@ -146,7 +146,7 @@ export default function Sidebar({ onLogout }) {
           return (
             <Link
               key={item.name}
-              to={item.href}
+              to={`/dashboard${item.href}`}
               className={cn(
                 "group relative flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200",
                 isActive
