@@ -12,6 +12,7 @@ import {
   LogIn,
   LogOut,
   Settings,
+  TruckIcon,
   Users,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
@@ -39,6 +40,19 @@ export default function Sidebar({ onLogout }) {
       icon: Clock10,
       roles: ["admin", "secretaire"],
     },
+    {
+      name: "Paiements",
+      href: "/paiements",
+      icon: DollarSign,
+      roles: ["admin", "secretaire"],
+    },
+    {
+      name: "Livraison",
+      href: "/livraisons",
+      icon: TruckIcon,
+      roles: ["admin", "secretaire"],
+    },
+
     {
       name: "Utilisateurs",
       href: "/users",

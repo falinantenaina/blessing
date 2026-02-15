@@ -408,6 +408,19 @@ export const inscriptionService = {
     return response.data;
   },
 
+  // Inscription publique
+  publicInscription: async (data) => {
+    try {
+      const response = await axios.post(
+        "inscriptions-publiques/inscrire",
+        data,
+      );
+      return response.data;
+    } catch (error) {
+      return error.response.data;
+    }
+  },
+
   // ✅ Récupérer inscription par ID
   getById: async (id) => {
     const response = await axios.get(`/inscriptions/${id}`);
@@ -616,7 +629,78 @@ export const etudiantService = {
   },
 };
 
+export const paiementService = {
+  /**
+   * Enregistrer un paiement
+   * POST /api/paiements
+   */
+  enregistrer: async (data) => {
+    const response = await axios.post("/paiements", data);
+    return response.data;
+  },
+
+  /**
+   * Obtenir les paiements d'une inscription
+   * GET /api/paiements/inscription/:inscriptionId
+   */
+  getByInscription: async (inscriptionId) => {
+    const response = await axios.get(`/paiements/inscription/${inscriptionId}`);
+    return response.data;
+  },
+
+  /**
+   * Obtenir le récapitulatif financier d'un étudiant
+   * GET /api/paiements/etudiant/:etudiantId/recap
+   */
+  getRecapEtudiant: async (etudiantId) => {
+    const response = await axios.get(`/paiements/etudiant/${etudiantId}/recap`);
+    return response.data;
+  },
+
+  /**
+   * Obtenir le statut des livres d'une inscription
+   * GET /api/paiements/livraisons/:inscriptionId
+   */
+  getStatutLivres: async (inscriptionId) => {
+    const response = await axios.get(`/paiements/livraisons/${inscriptionId}`);
+    return response.data;
+  },
+
+  /**
+   * Mettre à jour le statut de livraison d'un livre
+   * PATCH /api/paiements/livraisons/:inscriptionId/:typeLivre
+   */
+  updateLivraison: async (inscriptionId, typeLivre, data) => {
+    const response = await axios.patch(
+      `/paiements/livraisons/${inscriptionId}/${typeLivre}`,
+      data,
+    );
+    return response.data;
+  },
+
+  /**
+   * Marquer plusieurs livres comme livrés
+   * POST /api/paiements/livraisons/batch
+   */
+  livrerBatch: async (livraisons) => {
+    const response = await axios.post("/paiements/livraisons/batch", {
+      livraisons,
+    });
+    return response.data;
+  },
+
+  /**
+   * Obtenir les statistiques des paiements
+   * GET /api/paiements/stats
+   */
+  getStats: async (params = {}) => {
+    const response = await axios.get("/paiements/stats", { params });
+    return response.data;
+  },
+};
+
 export default {
+  paiementService,
   authService,
   vagueService,
   niveauService,

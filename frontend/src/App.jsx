@@ -4,6 +4,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import InscriptionEtudiant from "./pages/auth/InscriptionEtudiant";
 import Dashboard from "./pages/Dashboard";
 import EtudiantsPage from "./pages/Etudiants";
+import GestionLivraisons from "./pages/GestionLivraisons";
+import GestionPaiementsEtudiant from "./pages/GestionPaiementEtudiant";
 import Horaires from "./pages/Horaires";
 import Inscriptions from "./pages/Inscription";
 import InscriptionsEnAttente from "./pages/Inscriptionsenattente";
@@ -107,6 +109,22 @@ function App() {
             element={
               <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
                 <Inscriptions />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/paiements"
+            element={
+              <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
+                <GestionPaiementsEtudiant />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/livraisons"
+            element={
+              <ProtectedRoute roles={["admin", "secretaire", "enseignant"]}>
+                <GestionLivraisons />
               </ProtectedRoute>
             }
           />
