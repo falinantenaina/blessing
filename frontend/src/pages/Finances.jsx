@@ -1,13 +1,13 @@
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import Loading from "@/components/ui/Loading";
-import api from "@/lib/axios";
-import { formatDate } from "@/utils/dateUtils";
-import { formatCurrency, getStatutPaiementBadge } from "@/utils/formatUtils";
+import axios from "@/config/axios";
+
 import { DollarSign, PieChart, TrendingDown, TrendingUp } from "lucide-react";
 
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { formatCurrency, formatDate } from "../utils/helpers";
 
 export default function Finances() {
   const [stats, setStats] = useState(null);
@@ -36,7 +36,7 @@ export default function Finances() {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const response = await api.get("/finances/stats", {
+      const response = await axios.get("/finances/stats", {
         params: {
           date_debut: dateDebut,
           date_fin: dateFin,
@@ -53,7 +53,7 @@ export default function Finances() {
 
   const fetchInscriptions = async () => {
     try {
-      const response = await api.get("/inscriptions", {
+      const response = await axios.get("/inscriptions", {
         params: {
           date_debut: dateDebut,
           date_fin: dateFin,
@@ -249,7 +249,7 @@ export default function Finances() {
                 return (
                   <div key={item.mois} className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="font-medium capitalize">
+                      <span className="font-medium caxiostalize">
                         {monthName}
                       </span>
                       <span className="text-gray-600">

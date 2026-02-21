@@ -12,6 +12,12 @@ export function formatCurrency(amount) {
   }).format(amount); //.replace('EUR', 'Ar').replace(',', ' ');
 }
 
+export function formatDateForInput(date) {
+  if (!date) return "";
+
+  return new Date(date).toISOString().split("T")[0];
+}
+
 export function formatDate(date) {
   if (!date) return "";
   return new Date(date).toLocaleDateString("fr-FR", {

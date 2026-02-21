@@ -510,6 +510,9 @@ export default function Dashboard() {
                     Vagues
                   </th>
                   <th className="text-center py-3 px-4 text-xs font-medium text-gray-500 uppercase">
+                    Vagues en cours
+                  </th>
+                  <th className="text-center py-3 px-4 text-xs font-medium text-gray-500 uppercase">
                     Inscrits
                   </th>
                   <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase">
@@ -535,7 +538,10 @@ export default function Dashboard() {
                       {niveau.nb_vagues || 0}
                     </td>
                     <td className="py-3 px-4 text-center text-sm text-gray-900">
-                      {niveau.nb_inscrits || 0}
+                      {niveau.vagues_en_cours || 0}
+                    </td>
+                    <td className="py-3 px-4 text-center text-sm text-gray-900">
+                      {niveau.nb_etudiants || 0}
                     </td>
                     <td className="py-3 px-4 text-right text-sm font-medium text-gray-900">
                       {formatCurrency(

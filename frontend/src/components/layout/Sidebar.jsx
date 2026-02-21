@@ -37,7 +37,7 @@ export default function Sidebar({ onLogout }) {
     },
     {
       name: "Inscriptions",
-      href: "/inscription",
+      href: "/inscriptions",
       icon: LogIn,
       roles: ["admin", "secretaire"],
     },
