@@ -1,6 +1,10 @@
-import FinanceModel from '../models/finance.model.js';
-import { successResponse, errorResponse, paginatedResponse } from '../utils/response.js';
-import { asyncHandler } from '../utils/response.js';
+import FinanceModel from "../models/finance.model.js";
+import {
+  asyncHandler,
+  errorResponse,
+  paginatedResponse,
+  successResponse,
+} from "../utils/response.js";
 
 // Obtenir tous les écolages
 export const getEcolages = asyncHandler(async (req, res) => {
@@ -11,7 +15,7 @@ export const getEcolages = asyncHandler(async (req, res) => {
     niveau_id: req.query.niveau_id,
     search: req.query.search,
     page: req.query.page || 1,
-    limit: req.query.limit || 10
+    limit: req.query.limit || 10,
   };
 
   const result = await FinanceModel.getEcolages(filters);
@@ -22,7 +26,7 @@ export const getEcolages = asyncHandler(async (req, res) => {
     result.page,
     result.limit,
     result.total,
-    'Liste des écolages récupérée avec succès'
+    "Liste des écolages récupérée avec succès",
   );
 });
 
@@ -33,16 +37,20 @@ export const getEcolageById = asyncHandler(async (req, res) => {
   const ecolage = await FinanceModel.getEcolageById(id);
 
   if (!ecolage) {
-    return errorResponse(res, 'Écolage introuvable', 404);
+    return errorResponse(res, "Écolage introuvable", 404);
   }
 
   // Récupérer les paiements associés
   const paiements = await FinanceModel.getPaiementsByEcolage(id);
 
-  return successResponse(res, {
-    ...ecolage,
-    paiements
-  }, 'Écolage récupéré avec succès');
+  return successResponse(
+    res,
+    {
+      ...ecolage,
+      paiements,
+    },
+    "Écolage récupéré avec succès",
+  );
 });
 
 // Obtenir les écolages d'un étudiant
@@ -57,12 +65,16 @@ export const getEcolagesByEtudiant = asyncHandler(async (req, res) => {
       const paiements = await FinanceModel.getPaiementsByEcolage(ecolage.id);
       return {
         ...ecolage,
-        paiements
+        paiements,
       };
-    })
+    }),
   );
 
-  return successResponse(res, ecolagesAvecPaiements, 'Écolages de l\'étudiant récupérés avec succès');
+  return successResponse(
+    res,
+    ecolagesAvecPaiements,
+    "Écolages de l'étudiant récupérés avec succès",
+  );
 });
 
 // Enregistrer un paiement
@@ -74,21 +86,21 @@ export const enregistrerPaiement = asyncHandler(async (req, res) => {
     methode_paiement,
     reference,
     type_frais,
-    remarques
+    remarques,
   } = req.body;
 
   // Vérifier si l'écolage existe
   const ecolage = await FinanceModel.getEcolageById(ecolage_id);
   if (!ecolage) {
-    return errorResponse(res, 'Écolage introuvable', 404);
+    return errorResponse(res, "Écolage introuvable", 404);
   }
 
   // Vérifier que le montant ne dépasse pas le montant restant
   if (parseFloat(montant) > parseFloat(ecolage.montant_restant)) {
     return errorResponse(
       res,
-      'Le montant du paiement ne peut pas dépasser le montant restant',
-      400
+      "Le montant du paiement ne peut pas dépasser le montant restant",
+      400,
     );
   }
 
@@ -96,12 +108,12 @@ export const enregistrerPaiement = asyncHandler(async (req, res) => {
   const paiementId = await FinanceModel.enregistrerPaiement({
     ecolage_id,
     montant,
-    date_paiement: date_paiement || new Date().toISOString().split('T')[0],
+    date_paiement: date_paiement || new Date().toISOString().split("T")[0],
     methode_paiement,
     reference,
-    type_frais: type_frais || 'ecolage',
+    type_frais: type_frais || "ecolage",
     remarques,
-    utilisateur_id: req.user.id
+    utilisateur_id: req.user.id,
   });
 
   // Récupérer l'écolage mis à jour
@@ -113,10 +125,10 @@ export const enregistrerPaiement = asyncHandler(async (req, res) => {
     {
       paiement_id: paiementId,
       ecolage: ecolageUpdated,
-      paiements
+      paiements,
     },
-    'Paiement enregistré avec succès',
-    201
+    "Paiement enregistré avec succès",
+    201,
   );
 });
 
@@ -128,10 +140,10 @@ export const annulerPaiement = asyncHandler(async (req, res) => {
     const annule = await FinanceModel.annulerPaiement(id);
 
     if (!annule) {
-      return errorResponse(res, 'Erreur lors de l\'annulation du paiement', 400);
+      return errorResponse(res, "Erreur lors de l'annulation du paiement", 400);
     }
 
-    return successResponse(res, null, 'Paiement annulé avec succès');
+    return successResponse(res, null, "Paiement annulé avec succès");
   } catch (error) {
     return errorResponse(res, error.message, 400);
   }
@@ -141,32 +153,43 @@ export const annulerPaiement = asyncHandler(async (req, res) => {
 export const getFinanceStats = asyncHandler(async (req, res) => {
   const filters = {
     date_debut: req.query.date_debut,
-    date_fin: req.query.date_fin
+    date_fin: req.query.date_fin,
   };
 
   const stats = await FinanceModel.getStats(filters);
 
-  return successResponse(res, stats, 'Statistiques financières récupérées avec succès');
+  return successResponse(
+    res,
+    stats,
+    "Statistiques financières récupérées avec succès",
+  );
 });
 
 // Obtenir un rapport par période
 export const getRapportFinancier = asyncHandler(async (req, res) => {
   const filters = {
     date_debut: req.query.date_debut,
-    date_fin: req.query.date_fin
+    date_fin: req.query.date_fin,
   };
 
   const rapport = await FinanceModel.getRapport(filters);
 
   // Calculer les totaux
-  const totaux = rapport.reduce((acc, item) => {
-    acc.nb_paiements += parseInt(item.nb_paiements);
-    acc.total_paiements += parseFloat(item.total_paiements);
-    return acc;
-  }, { nb_paiements: 0, total_paiements: 0 });
+  const totaux = rapport.reduce(
+    (acc, item) => {
+      acc.nb_paiements += parseInt(item.nb_paiements);
+      acc.total_paiements += parseFloat(item.total_paiements);
+      return acc;
+    },
+    { nb_paiements: 0, total_paiements: 0 },
+  );
 
-  return successResponse(res, {
-    rapport,
-    totaux
-  }, 'Rapport financier généré avec succès');
+  return successResponse(
+    res,
+    {
+      rapport,
+      totaux,
+    },
+    "Rapport financier généré avec succès",
+  );
 });
