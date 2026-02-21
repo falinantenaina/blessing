@@ -176,7 +176,7 @@ export const validerInscription = asyncHandler(async (req, res) => {
   );
 });
 
-// Ajouter un paiement à une inscription
+// Ajouter un paiement à une inscription ou livre
 export const addPaiement = asyncHandler(async (req, res) => {
   const {
     inscription_id,
