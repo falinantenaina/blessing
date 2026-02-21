@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { formatDateForInput } from "../utils/helpers";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Tous les statuts" },
@@ -970,7 +971,7 @@ export default function Vagues() {
               <Input
                 label="Date de début"
                 type="date"
-                value={formData.date_debut}
+                value={formatDateForInput(formData.date_debut)}
                 onChange={(e) =>
                   setFormData({ ...formData, date_debut: e.target.value })
                 }
@@ -980,7 +981,7 @@ export default function Vagues() {
               <Input
                 label="Date de fin"
                 type="date"
-                value={formData.date_fin}
+                value={formatDateForInput(formData.date_fin)}
                 onChange={(e) =>
                   setFormData({ ...formData, date_fin: e.target.value })
                 }
