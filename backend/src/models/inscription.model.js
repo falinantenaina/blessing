@@ -361,7 +361,7 @@ class InscriptionModel {
       const {
         inscription_id,
         type_paiement,
-        type_livre = null,
+        type_livre,
         montant,
         date_paiement,
         methode_paiement,
@@ -384,6 +384,75 @@ class InscriptionModel {
         );
       }
 
+      if (type_paiement === "inscription") {
+        const [rows] = await connection.execute(
+          `SELECT n.frais_inscription,
+                  COALESCE(SUM(p.montant), 0) as total_deja_paye
+           FROM inscriptions i
+           JOIN vagues v ON i.vague_id = v.id
+           JOIN niveaux n ON v.niveau_id = n.id
+           LEFT JOIN paiements p ON p.inscription_id = i.id AND p.type_paiement = 'inscription'
+           WHERE i.id = ?
+           GROUP BY i.id, n.frais_inscription`,
+          [inscription_id],
+        );
+
+        if (rows.length === 0) throw new Error("Inscription introuvable");
+
+        const { frais_inscription, total_deja_paye } = rows[0];
+        const restant =
+          parseFloat(frais_inscription) - parseFloat(total_deja_paye);
+
+        // Se baser uniquement sur le restant calculé, pas sur le flag booléen
+        if (restant <= 0) {
+          throw new Error(
+            "Les frais d'inscription ont déjà été entièrement payés",
+          );
+        }
+
+        if (parseFloat(montant) > restant) {
+          throw new Error(
+            `Montant trop élevé. Restant dû : ${restant.toLocaleString("fr-FR")} Ar`,
+          );
+        }
+      }
+
+      if (type_paiement === "livre") {
+        const [rows] = await connection.execute(
+          `SELECT l.statut_paiement, l.prix,
+            COALESCE(SUM(p.montant), 0) as total_deja_paye
+     FROM livres l
+     LEFT JOIN paiements p ON p.inscription_id = l.inscription_id 
+                           AND p.type_paiement = 'livre' 
+                           AND p.type_livre = l.type_livre
+     WHERE l.inscription_id = ? AND l.type_livre = ?
+     GROUP BY l.id, l.statut_paiement, l.prix`,
+          [inscription_id, type_livre],
+        );
+
+        if (rows.length === 0) {
+          throw new Error(
+            `Livre de ${type_livre} introuvable pour cette inscription`,
+          );
+        }
+
+        const { statut_paiement, prix, total_deja_paye } = rows[0];
+
+        if (statut_paiement === "paye") {
+          throw new Error(
+            `Le livre de ${type_livre} a déjà été entièrement payé`,
+          );
+        }
+
+        const restant = parseFloat(prix) - parseFloat(total_deja_paye);
+
+        if (parseFloat(montant) > restant) {
+          throw new Error(
+            `Montant trop élevé. Restant dû pour le livre de ${type_livre} : ${restant.toLocaleString("fr-FR")} Ar`,
+          );
+        }
+      }
+
       // Enregistrer le paiement
       const [paiementResult] = await connection.execute(
         `INSERT INTO paiements (inscription_id, type_paiement, type_livre, montant, date_paiement, methode_paiement, reference_mvola, remarques, utilisateur_id)
@@ -401,19 +470,49 @@ class InscriptionModel {
         ],
       );
 
-      // Mettre à jour selon le type de paiement
+      // Mettre à jour selon le type de paiement, seulement si le solde est atteint
       if (type_paiement === "inscription") {
-        await connection.execute(
-          `UPDATE inscriptions SET frais_inscription_paye = TRUE WHERE id = ?`,
+        const [totaux] = await connection.execute(
+          `SELECT COALESCE(SUM(p.montant), 0) as total_paye, n.frais_inscription
+           FROM inscriptions i
+           JOIN vagues v ON i.vague_id = v.id
+           JOIN niveaux n ON v.niveau_id = n.id
+           LEFT JOIN paiements p ON p.inscription_id = i.id AND p.type_paiement = 'inscription'
+           WHERE i.id = ?
+           GROUP BY i.id, n.frais_inscription`,
           [inscription_id],
         );
+        const totalPaye = parseFloat(totaux[0].total_paye);
+        const fraisTotal = parseFloat(totaux[0].frais_inscription);
+
+        if (totalPaye >= fraisTotal) {
+          await connection.execute(
+            `UPDATE inscriptions SET frais_inscription_paye = TRUE WHERE id = ?`,
+            [inscription_id],
+          );
+        }
       } else if (type_paiement === "livre") {
-        await connection.execute(
-          `UPDATE livres 
-           SET statut_paiement = 'paye', date_paiement = ?
-           WHERE inscription_id = ? AND type_livre = ?`,
-          [date_paiement, inscription_id, type_livre],
+        const [totaux] = await connection.execute(
+          `SELECT COALESCE(SUM(p.montant), 0) as total_paye, l.prix
+           FROM livres l
+           LEFT JOIN paiements p ON p.inscription_id = l.inscription_id
+                                 AND p.type_paiement = 'livre'
+                                 AND p.type_livre = l.type_livre
+           WHERE l.inscription_id = ? AND l.type_livre = ?
+           GROUP BY l.id, l.prix`,
+          [inscription_id, type_livre],
         );
+        const totalPaye = parseFloat(totaux[0].total_paye);
+        const prix = parseFloat(totaux[0].prix);
+
+        if (totalPaye >= prix) {
+          await connection.execute(
+            `UPDATE livres 
+             SET statut_paiement = 'paye', date_paiement = ?
+             WHERE inscription_id = ? AND type_livre = ?`,
+            [date_paiement, inscription_id, type_livre],
+          );
+        }
       }
 
       await connection.commit();

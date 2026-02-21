@@ -181,13 +181,14 @@ export const addPaiement = asyncHandler(async (req, res) => {
   const {
     inscription_id,
     type_paiement,
-    type_livre,
     montant,
     date_paiement,
     methode_paiement,
     reference_mvola,
     remarques,
   } = req.body;
+
+  const type_livre = req.body.type_livre || null;
 
   // Validation pour mvola
   if (methode_paiement === "mvola" && !reference_mvola) {
@@ -207,26 +208,36 @@ export const addPaiement = asyncHandler(async (req, res) => {
     );
   }
 
-  const paiementId = await InscriptionModel.addPaiement({
-    inscription_id,
-    type_paiement,
-    type_livre,
-    montant,
-    date_paiement: date_paiement || new Date().toISOString().split("T")[0],
-    methode_paiement,
-    reference_mvola,
-    remarques,
-    utilisateur_id: req.user.id,
-  });
+  try {
+    const paiementId = await InscriptionModel.addPaiement({
+      inscription_id,
+      type_paiement,
+      type_livre,
+      montant,
+      date_paiement: date_paiement || new Date().toISOString().split("T")[0],
+      methode_paiement,
+      reference_mvola,
+      remarques,
+      utilisateur_id: req.user.id,
+    });
 
-  const inscription = await InscriptionModel.findById(inscription_id);
+    const inscription = await InscriptionModel.findById(inscription_id);
 
-  return successResponse(
-    res,
-    inscription,
-    "Paiement enregistré avec succès",
-    201,
-  );
+    return successResponse(
+      res,
+      inscription,
+      "Paiement enregistré avec succès",
+      201,
+    );
+  } catch (error) {
+    if (
+      error.message.includes("déjà été payé") ||
+      error.message.includes("déjà été payés")
+    ) {
+      return errorResponse(res, error.message, 409);
+    }
+    throw error;
+  }
 });
 
 // Mettre à jour le statut d'un livre
