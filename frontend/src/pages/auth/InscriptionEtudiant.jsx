@@ -9,6 +9,7 @@ import {
   BookOpen,
   CheckCircle2,
   Clock,
+  CreditCard,
   Eye,
   EyeOff,
   Home,
@@ -37,6 +38,34 @@ const InscriptionEtudiant = () => {
   const [niveauSelected, setNiveauSelected] = useState("");
   const [vagueSelected, setVagueSelected] = useState(null);
 
+  // Frais d'inscription récupérés via un appel API ciblé quand la vague ou le niveau change
+  const [fraisInscription, setFraisInscription] = useState(null);
+
+  useEffect(() => {
+    async function fetchFrais() {
+      try {
+        // Mode salle : on a la vague → on récupère son niveau_id
+        if (modeCours === "salle" && vagueSelected?.niveau_id) {
+          const res = await niveauService.getById(vagueSelected.niveau_id);
+          const niveau = res.data || res;
+          setFraisInscription(niveau?.frais_inscription ? parseFloat(niveau.frais_inscription) : null);
+        }
+        // Mode ligne : on a le niveau sélectionné directement
+        else if (modeCours === "ligne" && niveauSelected) {
+          const res = await niveauService.getById(niveauSelected);
+          const niveau = res.data || res;
+          setFraisInscription(niveau?.frais_inscription ? parseFloat(niveau.frais_inscription) : null);
+        }
+        else {
+          setFraisInscription(null);
+        }
+      } catch (err) {
+        setFraisInscription(null);
+      }
+    }
+    fetchFrais();
+  }, [vagueSelected, niveauSelected, modeCours]);
+
   const [formData, setFormData] = useState({
     nom: "",
     prenom: "",
@@ -46,6 +75,9 @@ const InscriptionEtudiant = () => {
     vague_id: "",
     role: "etudiant",
     mode_cours: "salle",
+    methode_paiement: "mvola",
+    montant_paye: "",
+    reference_mvola: "",
   });
 
   const isStep1Complete =
@@ -57,8 +89,14 @@ const InscriptionEtudiant = () => {
   const isStep2Complete = modeCours !== "";
   const isStep3Complete =
     modeCours === "ligne" || (modeCours === "salle" && formData.vague_id);
+  const isStep4Complete =
+    formData.montant_paye !== "" &&
+    parseFloat(formData.montant_paye) > 0 &&
+    (formData.methode_paiement !== "mvola" || formData.reference_mvola !== "");
 
-  const totalSteps = modeCours === "ligne" ? 2 : 3;
+  // ligne: 3 étapes (infos → mode → paiement)
+  // salle: 4 étapes (infos → mode → session → paiement)
+  const totalSteps = modeCours === "ligne" ? 3 : 4;
   const progressPercentage = (currentStep / totalSteps) * 100;
 
   useEffect(() => {
@@ -128,11 +166,9 @@ const InscriptionEtudiant = () => {
     if (currentStep === 1 && isStep1Complete) {
       setCurrentStep(2);
     } else if (currentStep === 2 && isStep2Complete) {
-      if (modeCours === "ligne") {
-        return;
-      } else {
-        setCurrentStep(3);
-      }
+      setCurrentStep(3);
+    } else if (currentStep === 3 && isStep3Complete && modeCours === "salle") {
+      setCurrentStep(4);
     }
   };
 
@@ -155,8 +191,22 @@ const InscriptionEtudiant = () => {
       return;
     }
 
+    if (!formData.montant_paye || parseFloat(formData.montant_paye) <= 0) {
+      toast.error("Veuillez entrer un montant payé valide");
+      return;
+    }
+
+    if (formData.methode_paiement === "mvola" && !formData.reference_mvola) {
+      toast.error("La référence MVola est requise");
+      return;
+    }
+
     setIsLoading(true);
-    const result = await inscriptionService.publicInscription(formData);
+    const payload = {
+      ...formData,
+      montant_paye: parseFloat(formData.montant_paye) || 0,
+    };
+    const result = await inscriptionService.publicInscription(payload);
 
     if (!result.success) {
       setIsLoading(false);
@@ -251,10 +301,10 @@ const InscriptionEtudiant = () => {
 
           <div className="hidden lg:block mb-8">
             <h2 className="text-4xl font-bold text-[#0a3d5c] mb-2">
-              Intégrez l’excellence – Inscrivez-vous à Blessing School
+              Intégrez l'excellence – Inscrivez-vous à Blessing School
             </h2>
             <p className="text-gray-600">
-              Une éducation d’élite commence par une simple étape
+              Une éducation d'élite commence par une simple étape
             </p>
           </div>
 
@@ -277,6 +327,8 @@ const InscriptionEtudiant = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+
+              {/* ─── ÉTAPE 1 : Informations personnelles ─── */}
               {currentStep === 1 && (
                 <div className="animate-in fade-in slide-in-from-right-5 duration-500 space-y-5">
                   <div className="mb-6">
@@ -419,6 +471,7 @@ const InscriptionEtudiant = () => {
                 </div>
               )}
 
+              {/* ─── ÉTAPE 2 : Mode de formation ─── */}
               {currentStep === 2 && (
                 <div className="animate-in fade-in slide-in-from-right-5 duration-500 space-y-5">
                   <div className="mb-6">
@@ -504,42 +557,23 @@ const InscriptionEtudiant = () => {
                       />
                       Retour
                     </button>
-                    {modeCours === "ligne" ? (
-                      <button
-                        type="submit"
-                        disabled={!isStep2Complete || isLoading}
-                        className="px-6 py-3 bg-linear-to-r from-[#0a3d5c] to-[#0f5a8a] hover:from-[#08324a] hover:to-[#0a3d5c] text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="animate-spin" size={18} />
-                            Inscription...
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 size={18} />
-                            S'inscrire
-                          </>
-                        )}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={goToNextStep}
-                        disabled={!isStep2Complete}
-                        className="group px-6 py-3 bg-linear-to-r from-[#0a3d5c] to-[#0f5a8a] hover:from-[#08324a] hover:to-[#0a3d5c] text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
-                      >
-                        Continuer
-                        <ArrowRight
-                          size={18}
-                          className="group-hover:translate-x-1 transition-transform"
-                        />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={goToNextStep}
+                      disabled={!isStep2Complete}
+                      className="group px-6 py-3 bg-linear-to-r from-[#0a3d5c] to-[#0f5a8a] hover:from-[#08324a] hover:to-[#0a3d5c] text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                    >
+                      Continuer
+                      <ArrowRight
+                        size={18}
+                        className="group-hover:translate-x-1 transition-transform"
+                      />
+                    </button>
                   </div>
                 </div>
               )}
 
+              {/* ─── ÉTAPE 3 (salle uniquement) : Choix de la session ─── */}
               {currentStep === 3 && modeCours === "salle" && (
                 <div className="animate-in fade-in slide-in-from-right-5 duration-500 space-y-5">
                   <div className="mb-6">
@@ -590,12 +624,13 @@ const InscriptionEtudiant = () => {
                           {vaguesFiltrees.map((v) => (
                             <div
                               key={v.id}
-                              onClick={() =>
+                              onClick={() => {
                                 setFormData((prev) => ({
                                   ...prev,
                                   vague_id: v.id,
-                                }))
-                              }
+                                }));
+                                setVagueSelected(v);
+                              }}
                               className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
                                 formData.vague_id == v.id
                                   ? "border-[#0a3d5c] bg-[#0a3d5c]/5 shadow-md"
@@ -640,8 +675,169 @@ const InscriptionEtudiant = () => {
                       Retour
                     </button>
                     <button
+                      type="button"
+                      onClick={goToNextStep}
+                      disabled={!isStep3Complete}
+                      className="group px-6 py-3 bg-linear-to-r from-[#0a3d5c] to-[#0f5a8a] hover:from-[#08324a] hover:to-[#0a3d5c] text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                    >
+                      Continuer
+                      <ArrowRight
+                        size={18}
+                        className="group-hover:translate-x-1 transition-transform"
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── ÉTAPE 3 (ligne) ou ÉTAPE 4 (salle) : Paiement ─── */}
+              {((currentStep === 3 && modeCours === "ligne") ||
+                (currentStep === 4 && modeCours === "salle")) && (
+                <div className="animate-in fade-in slide-in-from-right-5 duration-500 space-y-5">
+                  <div className="mb-6">
+                    <h3 className="text-xl font-bold text-[#0a3d5c] mb-1">
+                      Paiement
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Finalisez votre inscription en réglant les frais
+                    </p>
+                  </div>
+
+                  {/* Récapitulatif numéro */}
+                  <div className="p-4 bg-[#0a3d5c]/5 border border-[#0a3d5c]/20 rounded-lg">
+                    <p className="text-xs font-semibold text-[#0a3d5c] uppercase tracking-wide mb-2">
+                      Récapitulatif
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-[#0a3d5c]/10 rounded-lg">
+                        <Phone size={16} className="text-[#0a3d5c]" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Numéro de contact</p>
+                        <p className="font-semibold text-[#0a3d5c]">
+                          {formData.telephone || "—"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sélecteur de niveau pour mode ligne */}
+                  {modeCours === "ligne" && (
+                    <div className="animate-in fade-in duration-300">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Niveau d'études *
+                      </label>
+                      <select
+                        name="niveau_id"
+                        value={niveauSelected}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-[#0a3d5c] focus:ring-2 focus:ring-[#0a3d5c]/20 outline-none transition-all"
+                        required
+                      >
+                        <option value="">Sélectionnez votre niveau...</option>
+                        {niveaux.map((n) => (
+                          <option key={n.id} value={n.id}>
+                            {n.nom}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Frais d'inscription dynamiques */}
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
+                        Frais d'inscription
+                      </p>
+                      <p className="text-xs text-amber-600">
+                        Montant à régler pour valider votre inscription
+                      </p>
+                    </div>
+                    <span className="text-lg font-bold text-amber-700">
+                      {fraisInscription !== null
+                        ? `${fraisInscription.toLocaleString("fr-MG")} Ar`
+                        : <span className="text-sm text-amber-500 italic">Sélectionnez un niveau</span>
+                      }
+                    </span>
+                  </div>
+
+                  {/* Mode de paiement */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Mode de paiement *
+                    </label>
+                    <div className="relative">
+                      <CreditCard
+                        size={18}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                      />
+                      <select
+                        name="methode_paiement"
+                        value={formData.methode_paiement}
+                        onChange={handleChange}
+                        className="w-full pl-12 pr-4 py-3 rounded-lg border border-gray-300 focus:border-[#0a3d5c] focus:ring-2 focus:ring-[#0a3d5c]/20 outline-none transition-all appearance-none"
+                      >
+                        <option value="mvola">MVola</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Montant payé */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Montant payé (Ar) *
+                    </label>
+                    <input
+                      type="number"
+                      name="montant_paye"
+                      placeholder={fraisInscription !== null ? `ex: ${fraisInscription.toLocaleString("fr-MG")}` : "ex: 50 000"}
+                      value={formData.montant_paye}
+                      onChange={handleChange}
+                      min="0"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-[#0a3d5c] focus:ring-2 focus:ring-[#0a3d5c]/20 outline-none transition-all"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  {/* Référence MVola — affiché uniquement si mvola sélectionné */}
+                  {formData.methode_paiement === "mvola" && (
+                    <div className="animate-in fade-in duration-300">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Référence MVola *
+                      </label>
+                      <input
+                        type="text"
+                        name="reference_mvola"
+                        placeholder="ex: MVL-XXXXXXXX"
+                        value={formData.reference_mvola}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-[#0a3d5c] focus:ring-2 focus:ring-[#0a3d5c]/20 outline-none transition-all"
+                        required
+                        disabled={isLoading}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Le code de confirmation reçu par SMS après le paiement MVola
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between pt-4">
+                    <button
+                      type="button"
+                      onClick={goToPreviousStep}
+                      className="group px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      <ArrowLeft
+                        size={18}
+                        className="group-hover:-translate-x-1 transition-transform"
+                      />
+                      Retour
+                    </button>
+                    <button
                       type="submit"
-                      disabled={!isStep3Complete || isLoading}
+                      disabled={!isStep4Complete || isLoading}
                       className="px-6 py-3 bg-linear-to-r from-[#0a3d5c] to-[#0f5a8a] hover:from-[#08324a] hover:to-[#0a3d5c] text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
                     >
                       {isLoading ? (
