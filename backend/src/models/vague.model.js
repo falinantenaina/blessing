@@ -155,7 +155,7 @@ class VagueModel {
     const offset = (page - 1) * limit;
 
     query += " ORDER BY v.date_debut DESC LIMIT ? OFFSET ?";
-    params.push(limit, offset);
+    params.push(String(limit), String(offset));
 
     const [rows] = await pool.execute(query, params);
 
@@ -473,7 +473,7 @@ class VagueModel {
     const offset = (page - 1) * limit;
 
     query += " ORDER BY e.nom ASC, e.prenom ASC LIMIT ? OFFSET ?";
-    params.push(limit, offset);
+    params.push(String(limit), String(offset));
 
     const [etudiants] = await pool.execute(query, params);
 
@@ -657,7 +657,7 @@ class VagueModel {
     );
 
     query += " LIMIT ? OFFSET ?";
-    params.push(limit, offset);
+    params.push(String(limit), String(offset));
 
     const [vagues] = await pool.execute(query, params);
 

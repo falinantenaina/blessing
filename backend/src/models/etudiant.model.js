@@ -124,7 +124,7 @@ class EtudiantModel {
     ORDER BY e.nom ASC, e.prenom ASC
     LIMIT ? OFFSET ?
   `;
-    params.push(limit, offset);
+    params.push(String(limit), String(offset));
 
     // Exécution
     const [rows] = await pool.execute(query, params);
@@ -317,7 +317,7 @@ class EtudiantModel {
     const offset = (page - 1) * limit;
 
     query += " ORDER BY e.nom ASC, e.prenom ASC LIMIT ? OFFSET ?";
-    params.push(limit, offset);
+    params.push(String(limit), String(offset));
 
     const [rows] = await pool.execute(query, params);
 

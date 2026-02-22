@@ -110,7 +110,7 @@ class PaiementModel {
     // Pagination + tri
     query +=
       " ORDER BY p.date_paiement DESC, p.created_at DESC LIMIT ? OFFSET ?";
-    params.push(parseInt(limit), offset);
+    params.push(String(limit), String(offset));
 
     const [rows] = await pool.execute(query, params);
 

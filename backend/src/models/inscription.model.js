@@ -291,7 +291,7 @@ class InscriptionModel {
     const offset = (page - 1) * limit;
 
     query += " ORDER BY i.date_inscription DESC LIMIT ? OFFSET ?";
-    params.push(limit, offset);
+    params.push(String(limit), String(offset));
 
     const [rows] = await pool.execute(query, params);
 
